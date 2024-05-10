@@ -1,47 +1,55 @@
-use std::{
-    io::prelude::*, 
-    net::{TcpListener, TcpStream},
-};
+use std::error::Error;
+
+use tokio::{io::AsyncWriteExt, net::{TcpListener, TcpStream}};
+use tokio::io::AsyncReadExt;
 
 
 pub struct Redis {
+    addr: String,
     listener: TcpListener,
 }
 
 
 impl Redis {
-    pub fn new(addr: &str) -> Redis {
-        let listener = TcpListener::bind(addr).unwrap();
-
-        Redis { listener }
+    pub async fn new(addr: &str) -> Result<Redis, Box<dyn Error>> {
+        Ok(
+            Redis { 
+                addr: addr.to_owned(),
+                listener: TcpListener::bind(&addr).await?,
+            }
+        )
     }
 
-    pub fn run(&self) {
-        println!("RUN");
-        for stream in self.listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    Redis::handle_connection(stream);
-                }
-                Err(e) => {
-                    println!("Error while processing stream: {}", e);
-                }
-            }
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        
+        self.listener = TcpListener::bind(&self.addr).await?;
+        
+        loop {
+            let (socket, _) = self.listener.accept().await?;
+
+            tokio::spawn(async move {
+                Redis::handle_connection(socket).await;
+            });
         }
     }
 
-    fn handle_connection(mut stream: TcpStream) {
-        let mut command = [0; 512];
+    async fn handle_connection(mut socket: TcpStream) {
+        let mut command = [0; 1024];
 
         loop {
-            let read = stream.read(&mut command).unwrap();
-
-            if read == 0 {
-                break;
-            } else {
-                stream.write(b"+PONG\r\n").unwrap();
-            }
-
+            match socket.read(&mut command).await {
+                Ok(0) => return,
+                Ok(_) => {
+                    if let Err(e) = socket.write_all(b"+PONG\r\n").await {
+                        eprintln!("failed to write to socket; err = {:?}", e);
+                        return;
+                    }
+                },
+                Err(e) =>  {
+                    eprintln!("failed to read from socket; err = {:?}", e);
+                    return;
+                }
+            };
         }
     }
 }

@@ -2,9 +2,13 @@ mod redis;
 
 use redis::Redis;
 
-fn main() {
+#[tokio::main]
+async fn main() {
 
-    let redis = Redis::new("127.0.0.1:6379");
+    let mut redis = Redis::new("127.0.0.1:6379").await
+        .expect("Failed to connect");
     
-    redis.run();
+    if let Err(e) = redis.run().await {
+        eprintln!("Runtime error = {:?}", e);
+    }
 }
