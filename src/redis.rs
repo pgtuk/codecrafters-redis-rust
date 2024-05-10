@@ -5,7 +5,6 @@ use tokio::io::AsyncReadExt;
 
 
 pub struct Redis {
-    addr: String,
     listener: TcpListener,
 }
 
@@ -13,16 +12,13 @@ pub struct Redis {
 impl Redis {
     pub async fn new(addr: &str) -> Result<Redis, Box<dyn Error>> {
         Ok(
-            Redis { 
-                addr: addr.to_owned(),
+            Redis {
                 listener: TcpListener::bind(&addr).await?,
             }
         )
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        
-        self.listener = TcpListener::bind(&self.addr).await?;
         
         loop {
             let (socket, _) = self.listener.accept().await?;
