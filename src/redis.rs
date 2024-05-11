@@ -18,8 +18,7 @@ impl Redis {
         )
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> { 
         loop {
             let (socket, _) = self.listener.accept().await?;
 
@@ -49,5 +48,4 @@ impl Redis {
         }
     }
 }
-
 //  echo -e "PING\nPING" | ./spawn_redis_server.sh
