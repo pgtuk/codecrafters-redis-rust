@@ -1,8 +1,17 @@
 use std::error::Error;
 
-use tokio::{io::AsyncWriteExt, net::{TcpListener, TcpStream}};
-use tokio::io::AsyncReadExt;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::time::{self, Duration};
 
+mod connection;
+use connection::Connection;
+
+mod cmd;
+use cmd::Command;
+
+mod frame;
+
+pub use super::ProtocolError;
 
 pub struct Redis {
     listener: TcpListener,
@@ -20,31 +29,49 @@ impl Redis {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> { 
         loop {
-            let (socket, _) = self.listener.accept().await?;
+            let socket = self.accept().await?;
+            
+            let mut connection = Connection::new(socket);
 
             tokio::spawn(async move {
-                Redis::handle_connection(socket).await;
+                if let Err(e) = Redis::handle_connection(&mut connection).await {
+                    eprintln!("Error while handling connection: {}", e);
+                };
             });
         }
     }
 
-    async fn handle_connection(mut socket: TcpStream) {
-        let mut command = [0; 1024];
+    async fn accept(&mut self) -> Result<TcpStream, Box<dyn Error>> {
+        let mut tries = 1;
 
         loop {
-            match socket.read(&mut command).await {
-                Ok(0) => return,
-                Ok(_) => {
-                    if let Err(e) = socket.write_all(b"+PONG\r\n").await {
-                        eprintln!("failed to write to socket; err = {:?}", e);
-                        return;
+            match self.listener.accept().await {
+                Ok((socket, _)) => return Ok(socket),
+                Err(err) => {
+                    if tries > 64 {
+                        return Err(err.into());
                     }
-                },
-                Err(e) =>  {
-                    eprintln!("failed to read from socket; err = {:?}", e);
-                    return;
                 }
+            }
+
+            time::sleep(Duration::from_secs(tries)).await;
+
+            tries *= 2;
+        }
+    }
+
+    async fn handle_connection(connection: &mut Connection) -> Result<(), ProtocolError> {
+        loop {
+            let opt_frame =  connection.read_frame().await?;
+
+            let frame = match opt_frame {
+                Some(frame) => {frame},
+                None => return Ok(()),
             };
+
+            let cmd = Command::from_frame(frame)?;
+
+            cmd.apply(connection).await?;
         }
     }
 }

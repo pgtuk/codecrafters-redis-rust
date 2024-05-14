@@ -1,6 +1,13 @@
+use std::error::Error;
+
 mod redis;
 
 use redis::Redis;
+
+pub type ProtocolError = Box<dyn Error + Send + Sync>;
+
+pub type Result<T> = std::result::Result<T, ProtocolError>;
+
 
 #[tokio::main]
 async fn main() {
@@ -11,4 +18,5 @@ async fn main() {
     if let Err(e) = redis.run().await {
         eprintln!("Runtime error = {:?}", e);
     }
+    
 }
