@@ -8,7 +8,7 @@ use std::{
 
 use super::ProtocolError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Frame {
     Simple(String),
     Bulk(String),
@@ -29,6 +29,10 @@ impl Frame {
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), FrameError> {
         match get_u8(src)? {
             b'+' => {
+                get_line(src)?;
+                Ok(())
+            },
+            b'$' => {
                 get_line(src)?;
                 Ok(())
             },
@@ -56,6 +60,13 @@ impl Frame {
                 
                 Ok(Frame::Simple(string))
             },
+            b'$' => {
+                let line = get_line(src)?.to_vec();
+
+                let string = String::from_utf8(line)?;
+                
+                Ok(Frame::Bulk(string))
+            },
             b'*' => {
                 let len = get_int(src)?;
 
@@ -68,7 +79,10 @@ impl Frame {
                 Ok(Frame::Array(result))
             },
 
-            _ => unimplemented!()
+            any => {
+                println!("WE GOT THIS {}", String::from_utf8(vec![any]).unwrap());
+                unimplemented!()
+            }
         }
     }
 
@@ -97,7 +111,7 @@ fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     if !src.has_remaining() {
         return Err(FrameError::Incomplete)
     }
-
+    
     Ok(src.get_u8())
 }
 
@@ -119,11 +133,13 @@ fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
     let end = src.get_ref().len() - 1;
 
     for i in start..end {
-        if src.get_ref()[i+1] == b'\n' {
+        if src.get_ref()[i+1] == b'\n' && src.get_ref()[i] == b'\r' {
         
             src.set_position((i + 2) as u64);
 
-            return Ok(&src.get_ref()[start..end])
+            let res = &src.get_ref()[start..i];
+
+            return Ok(res)
         }
     }
     Err(FrameError::Incomplete)
@@ -173,5 +189,54 @@ impl fmt::Display for FrameError {
             FrameError::Incomplete => "stream ended early".fmt(fmt),
             FrameError::Other(err) => err.fmt(fmt),
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_parse_simple () {
+        let input = "OK";
+
+        let check = Frame::Simple(
+            input.to_owned()
+        );
+        
+        let input = format!("+{}\r\n", input);
+        let input = input.as_bytes();
+
+        let mut cursor = Cursor::new(&input[..]);
+
+        let frame = Frame::parse(&mut cursor).unwrap();
+
+        assert_eq!(check, frame);
+    }
+
+    #[test]
+    fn test_parse_bulk () {
+        // $5\r\nhello\r\n
+        assert!(false)
+    }
+
+    #[test]
+    fn test_parse_empty_bulk () {
+        // $0\r\n\r\n
+        assert!(false)
+    }
+    
+    #[test]
+    fn test_parse_null_bulk () {
+        // $-1\r\n
+        assert!(false)
+    }
+
+    #[test]
+    fn test_parse_array () {
+        // let input = b"*1\r\n$4\r\nPING\r\n";
+        assert!(false)
     }
 }
