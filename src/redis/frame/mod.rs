@@ -2,7 +2,7 @@ use bytes::Buf;
 use std::{
     fmt, 
     io::Cursor,
-    num::TryFromIntError,
+    num::{ParseIntError, TryFromIntError},
     string::FromUtf8Error,
 };
 
@@ -12,7 +12,11 @@ use super::ProtocolError;
 pub enum Frame {
     Simple(String),
     Bulk(String),
-    // Array(Vec<Frame>),
+    Array(Vec<Frame>),
+
+    // NullBulk
+    // Integer
+    // Error
 }
 
 #[derive(Debug)]
@@ -28,6 +32,15 @@ impl Frame {
                 get_line(src)?;
                 Ok(())
             },
+            b'*' => {
+                let len = get_int(src)?;
+
+                for _ in 0..len {
+                    Frame::check(src)?;
+                }
+
+                Ok(())
+            },
             unknown => Err(
                 format!("protocol error; invalid frame type byte `{}`", unknown).into()
             ),
@@ -41,13 +54,20 @@ impl Frame {
 
                 let string = String::from_utf8(line)?;
                 
-                let frame = Frame::Simple(string);
-                
-                dbg!(&frame);
-                Ok(frame)
-
-                // Ok(Frame::Simple(string))
+                Ok(Frame::Simple(string))
             },
+            b'*' => {
+                let len = get_int(src)?;
+
+                let mut result = Vec::with_capacity(len);
+
+                for _ in 0..len {
+                    result.push(Frame::parse(src)?);
+                }
+
+                Ok(Frame::Array(result))
+            },
+
             _ => unimplemented!()
         }
     }
@@ -68,7 +88,7 @@ impl Frame {
                     data=val,
                 )
             },
-            // Frame::Array(_) => unimplemented!()
+            Frame::Array(_) => unimplemented!()
         }
     }
 }
@@ -81,13 +101,22 @@ fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     Ok(src.get_u8())
 }
 
+fn get_int(src: &mut Cursor<&[u8]>) -> Result<usize, FrameError> {
+    if !src.has_remaining() {
+        return Err(FrameError::Incomplete)
+    }
+
+    String::from_utf8(
+        get_line(src)?.to_vec())?
+        .parse()
+        .map_err(|_| 
+            FrameError::Other("Invalid length type".into())
+        )
+}
+
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
     let start = src.position() as usize;
     let end = src.get_ref().len() - 1;
-
-    let line = &src.get_ref()[end-1..end+1];
-
-    dbg!(String::from_utf8(line.to_vec())?);
 
     for i in start..end {
         if src.get_ref()[i+1] == b'\n' {
@@ -126,6 +155,12 @@ impl From<TryFromIntError> for FrameError {
 
 impl From<std::io::Error> for FrameError {
     fn from(value: std::io::Error) -> FrameError {
+        value.into()
+    }
+}
+
+impl From<ParseIntError> for FrameError {
+    fn from(value: ParseIntError) -> FrameError {
         value.into()
     }
 }

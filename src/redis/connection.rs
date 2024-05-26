@@ -23,6 +23,7 @@ impl Connection {
     pub async fn read_frame(&mut self) -> Result<Option<Frame>, FrameError> {
         loop {
             if let Some(frame) = self.parse_frame()? {
+                dbg!(&frame);
                 return Ok(Some(frame));
             };
 

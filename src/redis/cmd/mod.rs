@@ -17,6 +17,7 @@ impl Command {
         let (command_name, args) =  match frame {
             Frame::Bulk(s) => {parse_line(&s)},
             Frame::Simple(s) => {parse_line(&s)},
+            Frame::Array(_) => unimplemented!(),
         };
 
         let command = match &command_name[..] {
@@ -34,7 +35,7 @@ impl Command {
     }
 }
 
-fn parse_line(line: &String) -> (String, Option<String>) {
+fn parse_line(line: &str) -> (String, Option<String>) {
     let line = line.to_lowercase();
     match line.split_once(' ') {
         Some((command, args)) => (
