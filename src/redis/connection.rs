@@ -1,4 +1,4 @@
-use std::io::{self, Cursor};
+use std::io::Cursor;
 
 use bytes::{Buf, BytesMut};
 use tokio::{
@@ -45,22 +45,9 @@ impl Connection {
     }
 
     pub async fn write_frame(&mut self, frame: &Frame) -> Result<(), FrameError> {
-        self.write_value(frame).await?;
-
+        self.stream.write_all(&frame.to_response()).await?;
         self.stream.flush().await?;
         
-        Ok(())
-    }
-
-    async fn write_value(&mut self, frame: &Frame) -> io::Result<()> {
-        self.write_str(frame.to_resp()).await?;
-
-        Ok(())
-    }
-
-    async fn write_str(&mut self, string: String) -> io::Result<()> {
-        self.stream.write_all(string.as_bytes()).await?;
-
         Ok(())
     }
 
@@ -71,8 +58,6 @@ impl Connection {
             Ok(_) => {
                 let len = buf.position() as usize;
 
-                buf.set_position(0);
-
                 let frame = Frame::parse(&mut buf)?;
 
                 self.buffer.advance(len);
@@ -82,6 +67,5 @@ impl Connection {
             Err(FrameError::Incomplete) => Ok(None),
             Err(e) => Err(e)
         }
-
     }
 }

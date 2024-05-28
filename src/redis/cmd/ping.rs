@@ -1,9 +1,16 @@
-use super::Result;
+use crate::{
+    redis::{
+        Connection,
+        frame::Frame,
+        parser::{
+            Parser, 
+            ParserError,
+        },
+    },
+    Result,
+};
 
-use crate::redis::frame::Frame;
-
-use super::Connection;
-
+#[derive(Debug)]
 pub struct Ping {
     msg: Option<String>,
 }
@@ -13,10 +20,11 @@ impl Ping {
         Ping { msg }
     }
 
-    pub fn parse_args(args: Option<String>) -> Result<Ping> {
-        match args {
-            Some(args) => Ok(Ping::new(Some(args))),
-            None => Ok(Ping::new(None)),
+    pub fn parse_args(parser: &mut Parser) -> Result<Ping> {
+        match parser.next_string() {
+            Ok(args) => Ok(Ping::new(Some(args))),
+            Err(ParserError::EndOfStream) => Ok(Ping::new(None)),
+            Err(e) => Err(e.into()),
         }
     }
     
@@ -24,7 +32,7 @@ impl Ping {
 
         let resp = match self.msg {
             None => Frame::Simple("PONG".to_owned()),
-            Some(msg) => Frame::Bulk(msg), 
+            Some(_msg) => unimplemented!(),
         };
 
         conn.write_frame(&resp).await?;

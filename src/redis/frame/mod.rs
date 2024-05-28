@@ -1,9 +1,10 @@
-use bytes::Buf;
+use bytes::{Buf, Bytes};
 use std::{
+    self,
     fmt, 
     io::Cursor,
     num::{ParseIntError, TryFromIntError},
-    string::FromUtf8Error,
+    string::FromUtf8Error, vec,
 };
 
 use super::ProtocolError;
@@ -11,10 +12,10 @@ use super::ProtocolError;
 #[derive(Debug, PartialEq)]
 pub enum Frame {
     Simple(String),
-    Bulk(String),
+    Bulk(Bytes),
+    Null,
     Array(Vec<Frame>),
 
-    // NullBulk
     // Integer
     // Error
 }
@@ -28,31 +29,50 @@ pub enum FrameError {
 impl Frame {
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), FrameError> {
         match get_u8(src)? {
+            // simple
             b'+' => {
                 get_line(src)?;
-                Ok(())
             },
+            // bulk
             b'$' => {
-                get_line(src)?;
-                Ok(())
+                if peek(src)? == b'-' {
+                    // check for valid null string '-1\r\n'
+                    src.advance(4)
+                } else {
+                    let len = get_int(src)?;
+
+                    // check for valid string of len `len` + \r\n
+                    src.advance(len + 2)
+                }
             },
+            // array
             b'*' => {
                 let len = get_int(src)?;
 
                 for _ in 0..len {
                     Frame::check(src)?;
                 }
-
-                Ok(())
             },
-            unknown => Err(
-                format!("protocol error; invalid frame type byte `{}`", unknown).into()
-            ),
+            unknown => {
+                return Err(
+                    format!(
+                        "protocol error; invalid frame type byte `{}`", 
+                        unknown
+                    ).into()
+                );
+            }
         }
+        
+        // some checks need to advance the cursor in buffer,
+        // so reset it here to preserve the state
+        src.set_position(0);
+
+        Ok(())
     }
 
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, FrameError> {
         match get_u8(src)? {
+            // simple
             b'+' => {
                 let line = get_line(src)?.to_vec();
 
@@ -60,13 +80,29 @@ impl Frame {
                 
                 Ok(Frame::Simple(string))
             },
+            // bulk
             b'$' => {
-                let line = get_line(src)?.to_vec();
+                if peek(src)? == b'-' {
+                    let line = get_line(src)?;
 
-                let string = String::from_utf8(line)?;
-                
-                Ok(Frame::Bulk(string))
+                    if line != b"-1" {
+                        return Err(FrameError::Other("Wrong format".into()));
+                    }
+
+                    Ok(Frame::Null)
+                } else {
+                    let len = get_int(src)?;
+
+                    if src.remaining() < len + 2 {
+                        return Err(FrameError::Incomplete);
+                    }
+                    
+                    let line = get_line(src)?.to_vec();
+
+                    Ok(Frame::Bulk(line.into()))
+                }
             },
+            // array
             b'*' => {
                 let len = get_int(src)?;
 
@@ -78,33 +114,36 @@ impl Frame {
 
                 Ok(Frame::Array(result))
             },
-
+            // unknown
             any => {
-                println!("WE GOT THIS {}", String::from_utf8(vec![any]).unwrap());
+                eprintln!("Unknown frame type: {}", String::from_utf8(vec![any]).unwrap());
                 unimplemented!()
             }
         }
     }
 
-    pub fn to_resp(&self) -> String {
+    pub fn to_response(&self) -> Vec<u8> {
         match self {
             Frame::Simple(val) => {
-                format!(
-                     "+{data}\r\n",
-                     data=val,
-                 )
-                 
-             },
-            Frame::Bulk(val) => {
-                format!(
-                    "${len}\r\n{data}\r\n", 
-                    len=val.len(), 
-                    data=val,
-                )
+                format!("+{}\r\n", val)
+                    .as_bytes()
+                    .to_vec()
             },
+            Frame::Null => {
+                b"$-1\r\n".to_vec()
+            },
+            Frame::Bulk(_) => unimplemented!(),
             Frame::Array(_) => unimplemented!()
         }
     }
+}
+
+fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
+    if !src.has_remaining() {
+        return Err(FrameError::Incomplete);
+    }
+
+    Ok(src.chunk()[0])
 }
 
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
@@ -121,11 +160,13 @@ fn get_int(src: &mut Cursor<&[u8]>) -> Result<usize, FrameError> {
     }
 
     String::from_utf8(
-        get_line(src)?.to_vec())?
+            get_line(src)?.to_vec()
+        )?
         .parse()
         .map_err(|_| 
-            FrameError::Other("Invalid length type".into())
+            FrameError::Other("Invalid length type".into()
         )
+    )
 }
 
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
@@ -192,51 +233,5 @@ impl fmt::Display for FrameError {
     }
 }
 
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_parse_simple () {
-        let input = "OK";
-
-        let check = Frame::Simple(
-            input.to_owned()
-        );
-        
-        let input = format!("+{}\r\n", input);
-        let input = input.as_bytes();
-
-        let mut cursor = Cursor::new(&input[..]);
-
-        let frame = Frame::parse(&mut cursor).unwrap();
-
-        assert_eq!(check, frame);
-    }
-
-    #[test]
-    fn test_parse_bulk () {
-        // $5\r\nhello\r\n
-        assert!(false)
-    }
-
-    #[test]
-    fn test_parse_empty_bulk () {
-        // $0\r\n\r\n
-        assert!(false)
-    }
-    
-    #[test]
-    fn test_parse_null_bulk () {
-        // $-1\r\n
-        assert!(false)
-    }
-
-    #[test]
-    fn test_parse_array () {
-        // let input = b"*1\r\n$4\r\nPING\r\n";
-        assert!(false)
-    }
-}
+mod tests;

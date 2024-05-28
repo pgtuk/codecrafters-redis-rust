@@ -7,9 +7,8 @@ mod connection;
 use connection::Connection;
 
 mod cmd;
-use cmd::Command;
-
 mod frame;
+mod parser;
 
 pub use super::ProtocolError;
 
@@ -61,6 +60,7 @@ impl Redis {
     }
 
     async fn handle_connection(connection: &mut Connection) -> Result<(), ProtocolError> {
+        // TODO Write ERROR
         loop {
             let opt_frame =  connection.read_frame().await?;
 
@@ -69,7 +69,7 @@ impl Redis {
                 None => return Ok(()),
             };
 
-            let cmd = Command::from_frame(frame)?;
+            let cmd = cmd::Command::from_frame(frame)?;
 
             cmd.apply(connection).await?;
         }
