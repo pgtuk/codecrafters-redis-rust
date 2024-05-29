@@ -130,7 +130,24 @@ impl Frame {
             Frame::Null => {
                 b"$-1\r\n".to_vec()
             },
-            Frame::Bulk(_) => unimplemented!(),
+            Frame::Bulk(val) => {
+                // $<length>\r\n<data>\r\n
+                let mut buff: Vec<u8> = Vec::new();
+
+                buff.push(b'$');
+                for c in val.len().to_string().chars() {
+                    buff.push(c as u8);
+                }
+                buff.push(b'\r');
+                buff.push(b'\n');
+                for b in val {
+                    buff.push(*b);
+                }
+                buff.push(b'\r');
+                buff.push(b'\n');
+
+                buff
+            },
             Frame::Array(_) => unimplemented!()
         }
     }

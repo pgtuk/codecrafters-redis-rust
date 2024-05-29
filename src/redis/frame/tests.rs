@@ -1,12 +1,7 @@
 use super::*;
-use std::io::Cursor;
+use crate::redis::tests::make_frame;
 
-fn make_frame(input: &[u8]) -> Frame {
-    let mut cursor = Cursor::new(&input[..]);
-
-    Frame::parse(&mut cursor).unwrap()
-}
-
+// test parse
 #[test]
 fn test_parse_simple () {
     let frame = make_frame(b"+OK\r\n");
@@ -59,4 +54,33 @@ fn test_parse_array () {
     ]);
     
     assert_eq!(expected, frame);
+}
+
+
+// test to_response
+#[test]
+fn test_to_response_simple() {
+    let input = b"+OK\r\n";
+    let frame = make_frame(input);
+    let response = frame.to_response();
+
+    assert_eq!(response, input)
+}
+
+#[test]
+fn test_to_response_null() {
+    let input = b"$-1\r\n";
+    let frame = make_frame(input);
+    let response = frame.to_response();
+
+    assert_eq!(response, input)
+}
+
+#[test]
+fn test_to_response_bulk() {
+    let input = b"$5\r\nhello\r\n";
+    let frame = make_frame(input);
+    let response = frame.to_response();
+
+    assert_eq!(response, input)
 }

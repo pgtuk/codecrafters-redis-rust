@@ -74,3 +74,7 @@ impl Redis {
     }
 }
 //  echo -e "PING\nPING" | ./spawn_redis_server.sh
+
+
+#[cfg(test)]
+mod tests;

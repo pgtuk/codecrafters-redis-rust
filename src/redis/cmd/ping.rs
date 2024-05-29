@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 use crate::redis::{
-    Connection,
     frame::Frame,
     parser::{
         Parser, 
@@ -9,7 +8,7 @@ use crate::redis::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Ping {
     msg: Option<String>,
 }
@@ -27,15 +26,10 @@ impl Ping {
         }
     }
     
-    pub async fn apply (self, conn: &mut Connection) -> Result<()> {
-
-        let resp = match self.msg {
+    pub fn to_response (self) -> Frame {
+        match self.msg {
             None => Frame::Simple("PONG".to_owned()),
-            Some(_msg) => unimplemented!(),
-        };
-
-        conn.write_frame(&resp).await?;
-
-        Ok(())
+            Some(msg) => Frame::Bulk(msg.into()),
+        }
     }
 }

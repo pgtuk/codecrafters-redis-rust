@@ -9,10 +9,13 @@ use super::{
 mod ping;
 use ping::Ping;
 
-#[derive(Debug)]
+mod echo;
+use echo::Echo;
+
+#[derive(Debug, PartialEq)]
 pub enum Command {
     Ping(Ping),
-    // Echo,
+    Echo(Echo),
 }
 
 impl Command {
@@ -24,6 +27,7 @@ impl Command {
 
         let command = match &command_name[..] {
             "ping" => Command::Ping(Ping::parse_args(&mut parser)?),
+            "echo" => Command::Echo(Echo::parse_args(&mut parser)?),
             _ => unimplemented!(),
         };
 
@@ -31,9 +35,15 @@ impl Command {
     }
 
     pub async fn apply(self, conn: &mut Connection) -> Result<()> {
-        match self {
-            Command::Ping(cmd) => {cmd.apply(conn).await}
-        }
+        let response_frame = match self {
+            Command::Ping(cmd) => {cmd.to_response()},
+            Command::Echo(cmd) => {cmd.to_response()},
+            // _ => unimplemented!()
+        };
+
+        conn.write_frame(&response_frame).await?;
+
+        Ok(())
     }
 }
 
