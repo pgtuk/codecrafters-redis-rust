@@ -1,4 +1,5 @@
 use bytes::{Buf, Bytes};
+use thiserror::Error;
 use std::{
     self,
     fmt, 
@@ -7,23 +8,19 @@ use std::{
     string::FromUtf8Error, vec,
 };
 
-use super::ProtocolError;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
     Simple(String),
     Bulk(Bytes),
     Null,
     Array(Vec<Frame>),
-
-    // Integer
-    // Error
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum FrameError {
     Incomplete,
-    Other(ProtocolError),
+    Other(String),
 }
 
 impl Frame {
@@ -55,10 +52,9 @@ impl Frame {
             },
             unknown => {
                 return Err(
-                    format!(
-                        "protocol error; invalid frame type byte `{}`", 
-                        unknown
-                    ).into()
+                    FrameError::Other(
+                        format!("protocol error; invalid frame type byte `{}`", unknown)
+                    )
                 );
             }
         }
@@ -86,7 +82,9 @@ impl Frame {
                     let line = get_line(src)?;
 
                     if line != b"-1" {
-                        return Err(FrameError::Other("Wrong format".into()));
+                        return Err(
+                            FrameError::Other("Wrong format".to_string())
+                        );
                     }
 
                     Ok(Frame::Null)
@@ -160,13 +158,12 @@ fn get_int(src: &mut Cursor<&[u8]>) -> Result<usize, FrameError> {
     }
 
     String::from_utf8(
-            get_line(src)?.to_vec()
-        )?
-        .parse()
-        .map_err(|_| 
-            FrameError::Other("Invalid length type".into()
-        )
-    )
+        get_line(src)?.to_vec()
+    )?
+    .parse()
+    .map_err(|_| 
+        FrameError::Other("Can't parse integer".to_string())
+    )  
 }
 
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
@@ -188,7 +185,7 @@ fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
 
 impl From<String> for FrameError {
     fn from(src: String) -> FrameError {
-        FrameError::Other(src.into())
+        FrameError::Other(src)
     }
 }
 
@@ -221,8 +218,6 @@ impl From<ParseIntError> for FrameError {
         value.into()
     }
 }
-
-impl std::error::Error for FrameError {}
 
 impl fmt::Display for FrameError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

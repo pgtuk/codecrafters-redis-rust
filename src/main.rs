@@ -1,12 +1,5 @@
-use std::error::Error;
-
 mod redis;
-
 use redis::Redis;
-
-pub type ProtocolError = Box<dyn Error + Send + Sync>;
-
-pub type Result<T> = std::result::Result<T, ProtocolError>;
 
 
 #[tokio::main]

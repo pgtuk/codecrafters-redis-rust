@@ -1,8 +1,9 @@
+use anyhow::Result;
+
 use super::{
     connection::Connection,
     frame::Frame,
     parser::Parser,
-    ProtocolError,
 };
 
 mod ping;
@@ -15,7 +16,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn from_frame(frame: Frame) -> Result<Command, ProtocolError> {
+    pub fn from_frame(frame: Frame) -> Result<Command> {
         // all redis commands come in form of RESP arrays
         let mut parser = Parser::new(frame)?;
   
@@ -29,7 +30,7 @@ impl Command {
         Ok(command)
     }
 
-    pub async fn apply(self, conn: &mut Connection) -> Result<(), ProtocolError> {
+    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
         match self {
             Command::Ping(cmd) => {cmd.apply(conn).await}
         }

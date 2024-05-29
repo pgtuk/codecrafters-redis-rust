@@ -1,19 +1,76 @@
+use bytes::Bytes;
+
+use crate::redis::frame::Frame;
+use super::*;
+
+
 #[test]
 fn test_create_parser() {
-    assert!(false)
+    let empty_frame = Frame::Null;
+    let simple_frame = Frame::Simple("ok".to_string());
+    
+    let frame = Frame::Array(vec![
+        empty_frame.clone(),
+        simple_frame.clone(),
+    ]);
+    
+    let mut parser = Parser::new(frame).unwrap();
+    
+    assert_eq!(parser.next().unwrap(), empty_frame);
+    assert_eq!(parser.next().unwrap(), simple_frame);
+    assert_eq!(
+        parser.next().unwrap_err(),
+        ParserError::EndOfStream
+    );
 }
 
 #[test]
 fn test_create_parser_err() {
-    assert!(false)
+    let non_array_frame = Frame::Null;
+
+    let parse_result = Parser::new(non_array_frame.clone());
+
+    assert_eq!(
+        parse_result.unwrap_err(),
+        ParserError::Other(
+            format!("protocol error; expected array, got {:?}", non_array_frame)
+        ),
+    )
 }
 
 #[test]
-fn test_parser_next_string() {
-    assert!(false)
+fn test_parser_next_string_simple() {
+    let string = String::from("Hello there");
+    let frame = Frame::Simple(string.clone());
+
+    let mut parser = Parser::new(
+        Frame::Array(vec![
+            frame.clone()
+        ])
+    ).unwrap();
+
+    assert_eq!(
+        parser.next_string().unwrap(),
+        string,
+    )
 }
 
+
 #[test]
-fn test_parser_next_string_no_more_items() {
-    assert!(false)
+fn test_parser_next_string_bulk() {
+    let bytes = b"Hello there";
+    let frame = Frame::Bulk(
+        Bytes::from_static(bytes)
+    );
+
+    let mut parser = Parser::new(
+        Frame::Array(vec![
+            frame.clone()
+        ])
+    ).unwrap();
+
+    assert_eq!(
+        parser.next_string().unwrap(),
+        String::from_utf8(bytes.to_vec()).unwrap(),
+    )
 }

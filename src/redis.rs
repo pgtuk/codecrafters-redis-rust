@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use anyhow::Result;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{self, Duration};
 
@@ -10,7 +9,6 @@ mod cmd;
 mod frame;
 mod parser;
 
-pub use super::ProtocolError;
 
 pub struct Redis {
     listener: TcpListener,
@@ -18,7 +16,7 @@ pub struct Redis {
 
 
 impl Redis {
-    pub async fn new(addr: &str) -> Result<Redis, Box<dyn Error>> {
+    pub async fn new(addr: &str) -> Result<Redis> {
         Ok(
             Redis {
                 listener: TcpListener::bind(&addr).await?,
@@ -26,7 +24,7 @@ impl Redis {
         )
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> { 
+    pub async fn run(&mut self) -> Result<()> { 
         loop {
             let socket = self.accept().await?;
             
@@ -40,7 +38,7 @@ impl Redis {
         }
     }
 
-    async fn accept(&mut self) -> Result<TcpStream, Box<dyn Error>> {
+    async fn accept(&mut self) -> Result<TcpStream> {
         let mut tries = 1;
 
         loop {
@@ -59,7 +57,7 @@ impl Redis {
         }
     }
 
-    async fn handle_connection(connection: &mut Connection) -> Result<(), ProtocolError> {
+    async fn handle_connection(connection: &mut Connection) -> Result<()> {
         // TODO Write ERROR
         loop {
             let opt_frame =  connection.read_frame().await?;

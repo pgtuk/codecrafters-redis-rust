@@ -1,14 +1,11 @@
 use std::{
-    error::Error, 
     fmt,
     str, 
     vec,
 };
+use thiserror::Error;
 
-use super::{
-    frame::Frame,
-    ProtocolError,
-};
+use super::frame::Frame;
 
 
 #[derive(Debug)]
@@ -16,18 +13,22 @@ pub(crate) struct Parser {
     frames: vec::IntoIter<Frame>,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ParserError {
     EndOfStream,
 
-    Other(ProtocolError),
+    Other(String),
 }
 
 impl Parser {
     pub fn new(frame: Frame) -> Result<Parser, ParserError> {
         let frame_array = match frame {
             Frame::Array(array) => array.into_iter(),
-            _ => return Err(format!("protocol error; expected array, got {:?}", frame).into()),
+            _ => return Err(
+                ParserError::Other(
+                    format!("protocol error; expected array, got {:?}", frame)
+                )
+            ),
         };
 
         Ok(
@@ -44,15 +45,21 @@ impl Parser {
             Frame::Simple(val) => Ok(val),
             Frame::Bulk(val) => str::from_utf8(&val[..])
                 .map(|s| s.to_string())
-                .map_err(|_| "protocol error; invalid string".into()),
-            frame =>  Err(format!("protocol error; expected simple/bulk frame, got {:?}", frame).into()),
+                .map_err(|_| ParserError::Other("protocol error; invalid string".to_string())),
+            frame => {
+                Err(
+                    ParserError::Other(
+                        format!("protocol error; expected simple/bulk frame, got {:?}", frame)
+                    )
+                )
+            }
         }
     }
 }
 
 impl From<String> for ParserError {
     fn from(src: String) -> ParserError {
-        ParserError::Other(src.into())
+        ParserError::Other(src)
     }
 }
 
@@ -70,8 +77,6 @@ impl fmt::Display for ParserError {
         }
     }
 }
-
-impl Error for ParserError {}
 
 #[cfg(test)]
 mod tests;

@@ -1,13 +1,12 @@
-use crate::{
-    redis::{
-        Connection,
-        frame::Frame,
-        parser::{
-            Parser, 
-            ParserError,
-        },
+use anyhow::Result;
+
+use crate::redis::{
+    Connection,
+    frame::Frame,
+    parser::{
+        Parser, 
+        ParserError,
     },
-    Result,
 };
 
 #[derive(Debug)]
