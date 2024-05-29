@@ -33,19 +33,18 @@ impl Frame {
             // bulk
             b'$' => {
                 if peek(src)? == b'-' {
-                    // check for valid null string '-1\r\n'
-                    src.advance(4)
+                    
+                    skip(src, 4)?
                 } else {
                     let len = get_int(src)?;
 
                     // check for valid string of len `len` + \r\n
-                    src.advance(len + 2)
+                    skip(src, len + 2)?
                 }
             },
             // array
             b'*' => {
                 let len = get_int(src)?;
-
                 for _ in 0..len {
                     Frame::check(src)?;
                 }
@@ -58,11 +57,7 @@ impl Frame {
                 );
             }
         }
-        
-        // some checks need to advance the cursor in buffer,
-        // so reset it here to preserve the state
-        src.set_position(0);
-
+      
         Ok(())
     }
 
@@ -161,6 +156,15 @@ fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     Ok(src.chunk()[0])
 }
 
+fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), FrameError> {
+    if src.remaining() < n {
+        return Err(FrameError::Incomplete)
+    }
+
+    src.advance(n);
+    Ok(())
+}
+
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     if !src.has_remaining() {
         return Err(FrameError::Incomplete)
@@ -178,9 +182,9 @@ fn get_int(src: &mut Cursor<&[u8]>) -> Result<usize, FrameError> {
         get_line(src)?.to_vec()
     )?
     .parse()
-    .map_err(|_| 
+    .map_err(|_| {
         FrameError::Other("Can't parse integer".to_string())
-    )  
+    })
 }
 
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
@@ -188,13 +192,10 @@ fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
     let end = src.get_ref().len() - 1;
 
     for i in start..end {
-        if src.get_ref()[i+1] == b'\n' && src.get_ref()[i] == b'\r' {
-        
+        if src.get_ref()[i] == b'\r' && src.get_ref()[i + 1] == b'\n' {
             src.set_position((i + 2) as u64);
 
-            let res = &src.get_ref()[start..i];
-
-            return Ok(res)
+            return Ok(&src.get_ref()[start..i])
         }
     }
     Err(FrameError::Incomplete)

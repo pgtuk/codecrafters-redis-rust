@@ -30,7 +30,6 @@ impl Connection {
     pub async fn read_frame(&mut self) -> Result<Option<Frame>, FrameError> {
         loop {
             if let Some(frame) = self.parse_frame()? {
-                dbg!(&frame);
                 return Ok(Some(frame));
             };
 
@@ -57,6 +56,9 @@ impl Connection {
         match Frame::check(&mut buf) {
             Ok(_) => {
                 let len = buf.position() as usize;
+                dbg!(len);
+
+                buf.set_position(0);
 
                 let frame = Frame::parse(&mut buf)?;
 

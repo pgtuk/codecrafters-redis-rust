@@ -61,7 +61,7 @@ impl Redis {
         // TODO Write ERROR
         loop {
             let opt_frame =  connection.read_frame().await?;
-
+            
             let frame = match opt_frame {
                 Some(frame) => {frame},
                 None => return Ok(()),
@@ -73,8 +73,6 @@ impl Redis {
         }
     }
 }
-//  echo -e "PING\nPING" | ./spawn_redis_server.sh
-
 
 #[cfg(test)]
 mod tests;
