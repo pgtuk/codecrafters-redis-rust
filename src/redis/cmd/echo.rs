@@ -23,7 +23,11 @@ impl Echo {
         }
     }
 
-    pub fn to_response (self) -> Frame {
+    pub fn apply(self) -> Frame {
+        self.to_frame()
+    }
+
+    fn to_frame (self) -> Frame {
         Frame::Bulk(self.msg)
     }
 }

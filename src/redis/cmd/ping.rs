@@ -25,10 +25,14 @@ impl Ping {
             Err(e) => Err(e.into()),
         }
     }
+
+    pub fn apply(self) -> Frame {
+        self.to_frame()
+    }
     
-    pub fn to_response (self) -> Frame {
+    fn to_frame (self) -> Frame {
         match self.msg {
-            None => Frame::Simple("PONG".to_owned()),
+            None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg.into()),
         }
     }

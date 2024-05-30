@@ -1,4 +1,7 @@
+// use std::sync::Arc;
+
 use anyhow::Result;
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{self, Duration};
 
@@ -6,20 +9,24 @@ mod connection;
 use connection::Connection;
 
 mod cmd;
+
+mod db;
+use db::Db;
+
 mod frame;
 mod parser;
 
-
-pub struct Redis {
+pub struct Server {
     listener: TcpListener,
+    db: Db,
 }
 
-
-impl Redis {
-    pub async fn new(addr: &str) -> Result<Redis> {
+impl Server {
+    pub async fn new(addr: &str) -> Result<Server> {
         Ok(
-            Redis {
+            Server {
                 listener: TcpListener::bind(&addr).await?,
+                db: Db::new(),
             }
         )
     }
@@ -28,10 +35,13 @@ impl Redis {
         loop {
             let socket = self.accept().await?;
             
-            let mut connection = Connection::new(socket);
+            let mut handler = Handler {
+                connection: Connection::new(socket),
+                db: self.db.clone(),
+            };
 
             tokio::spawn(async move {
-                if let Err(e) = Redis::handle_connection(&mut connection).await {
+                if let Err(e) = handler.handle_connection().await {
                     eprintln!("Error while handling connection: {}", e);
                 };
             });
@@ -57,10 +67,19 @@ impl Redis {
         }
     }
 
-    async fn handle_connection(connection: &mut Connection) -> Result<()> {
+    
+}
+
+struct Handler {
+    connection: Connection,
+    db: Db,
+}
+
+impl Handler {
+    async fn handle_connection(&mut self) -> Result<()> {
         // TODO Write ERROR
         loop {
-            let opt_frame =  connection.read_frame().await?;
+            let opt_frame =  self.connection.read_frame().await?;
             
             let frame = match opt_frame {
                 Some(frame) => {frame},
@@ -69,7 +88,7 @@ impl Redis {
 
             let cmd = cmd::Command::from_frame(frame)?;
 
-            cmd.apply(connection).await?;
+            cmd.apply(&mut self.connection, &mut self.db).await?;
         }
     }
 }

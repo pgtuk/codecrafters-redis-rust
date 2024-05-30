@@ -3,6 +3,7 @@ use std::{
     str, 
     vec,
 };
+use bytes::Bytes;
 use thiserror::Error;
 
 use super::frame::Frame;
@@ -46,6 +47,20 @@ impl Parser {
             Frame::Bulk(val) => str::from_utf8(&val[..])
                 .map(|s| s.to_string())
                 .map_err(|_| ParserError::Other("protocol error; invalid string".to_string())),
+            frame => {
+                Err(
+                    ParserError::Other(
+                        format!("protocol error; expected simple/bulk frame, got {:?}", frame)
+                    )
+                )
+            }
+        }
+    }
+
+    pub fn next_bytes(&mut self) -> Result<Bytes, ParserError> {
+        match self.next()? {
+            Frame::Simple(val) => Ok(val.into()),
+            Frame::Bulk(val) => Ok(val),
             frame => {
                 Err(
                     ParserError::Other(
