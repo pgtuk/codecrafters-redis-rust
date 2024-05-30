@@ -13,6 +13,7 @@ use std::{
 pub enum Frame {
     Simple(String),
     Bulk(Bytes),
+    Integer(u64),
     Null,
     Array(Vec<Frame>),
 }
@@ -41,6 +42,10 @@ impl Frame {
                     // check for valid string of len `len` + \r\n
                     skip(src, len + 2)?
                 }
+            },
+            //integer
+            b':' => {
+                get_int(src)?;
             },
             // array
             b'*' => {
@@ -95,6 +100,12 @@ impl Frame {
                     Ok(Frame::Bulk(line.into()))
                 }
             },
+            // integer
+            b':' => {
+                let int = get_int(src)?;
+
+                Ok(Frame::Integer(int.try_into()?))
+            },
             // array
             b'*' => {
                 let len = get_int(src)?;
@@ -124,6 +135,9 @@ impl Frame {
             },
             Frame::Null => {
                 b"$-1\r\n".to_vec()
+            },
+            Frame::Integer(val) => {
+                format!(":{}\r\n", val).as_bytes().to_vec()
             },
             Frame::Bulk(val) => {
                 // $<length>\r\n<data>\r\n

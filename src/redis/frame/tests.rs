@@ -45,6 +45,30 @@ fn test_parse_null_bulk () {
 }
 
 #[test]
+fn test_parse_integer () {
+    let frame = make_frame(b":1000\r\n");
+
+    let expected = Frame::Integer(1000);
+    
+    assert_eq!(expected, frame);
+}
+
+#[test]
+fn test_to_response_integer () {
+    assert!(false)
+}
+
+#[test]
+fn test_to_response_negative_integer () {
+    assert!(false)
+}
+
+#[test]
+fn test_parse_negative_integer () {
+    assert!(false)
+}
+
+#[test]
 fn test_parse_array () {
     let frame = make_frame(b"*2\r\n$4\r\nPING\r\n$-1\r\n");
     

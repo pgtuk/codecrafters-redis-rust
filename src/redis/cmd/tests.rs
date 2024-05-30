@@ -101,7 +101,11 @@ fn test_cmd_from_frame_set() {
     let cmd = Command::from_frame(frame).unwrap();
 
     let expected = Command::Set(
-        Set::new("hey".to_string(), Bytes::from_static(b"you"))
+        Set::new(
+            "hey".to_string(), 
+            Bytes::from_static(b"you"),
+            None,
+        )
     );
 
     assert_eq!(
@@ -131,7 +135,11 @@ fn test_cmd_from_frame_get() {
 fn test_cmd_set() {
     let mut db = Db::new();
 
-    let set = Set::new("hey".to_string(), Bytes::from_static(b"you"));
+    let set = Set::new(
+        "hey".to_string(), 
+        Bytes::from_static(b"you"), 
+        None,
+    );
 
     set.apply(&mut db);
 
@@ -147,7 +155,11 @@ fn test_cmd_set() {
 fn test_cmd_get() {
     let mut db = Db::new();
 
-    let set = Set::new("hey".to_string(), Bytes::from_static(b"you"));
+    let set = Set::new(
+        "hey".to_string(),
+        Bytes::from_static(b"you"), 
+        None,
+    );
     set.apply(&mut db);
 
     let get = Get::new("hey".to_string());

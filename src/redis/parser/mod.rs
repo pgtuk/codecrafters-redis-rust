@@ -2,8 +2,9 @@ use std::{
     fmt,
     str, 
     vec,
+    num::ParseIntError, 
 };
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use thiserror::Error;
 
 use super::frame::Frame;
@@ -70,6 +71,21 @@ impl Parser {
             }
         }
     }
+
+    pub fn next_int(&mut self) -> Result<u64, ParserError> {
+        match self.next()? {
+            Frame::Integer(val) => Ok(val),
+            Frame::Simple(val) => Ok(val.parse::<u64>()?),
+            Frame::Bulk(mut val) => Ok(val.get_u64()),
+            frame => {
+                Err(
+                    ParserError::Other(
+                        format!("protocol error; expected simple/bulk frame, got {:?}", frame)
+                    )
+                )
+            }
+        }
+    }
 }
 
 impl From<String> for ParserError {
@@ -81,6 +97,12 @@ impl From<String> for ParserError {
 impl From<&str> for ParserError {
     fn from(src: &str) -> ParserError {
         src.to_string().into()
+    }
+}
+
+impl From<ParseIntError> for ParserError {
+    fn from(value: ParseIntError) -> ParserError {
+        value.into()
     }
 }
 
