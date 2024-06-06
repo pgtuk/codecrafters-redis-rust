@@ -55,17 +55,11 @@ fn test_parse_integer () {
 
 #[test]
 fn test_to_response_integer () {
-    assert!(false)
-}
+    let input = b":1000\r\n";
+    let frame = make_frame(input);
+    let response = frame.to_response();
 
-#[test]
-fn test_to_response_negative_integer () {
-    assert!(false)
-}
-
-#[test]
-fn test_parse_negative_integer () {
-    assert!(false)
+    assert_eq!(response, input)
 }
 
 #[test]

@@ -131,8 +131,8 @@ fn test_cmd_from_frame_get() {
     )
 }
 
-#[test]
-fn test_cmd_set() {
+#[tokio::test]
+async fn test_cmd_set() {
     let mut db = Db::new();
 
     let set = Set::new(
@@ -151,8 +151,8 @@ fn test_cmd_set() {
     )
 }
 
-#[test]
-fn test_cmd_get() {
+#[tokio::test]
+async fn test_cmd_get() {
     let mut db = Db::new();
 
     let set = Set::new(

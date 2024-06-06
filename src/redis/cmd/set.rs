@@ -45,7 +45,7 @@ impl Set {
     }
 
     pub fn apply(self, db: &mut Db) -> Frame {
-        db.set(self.key, self.value);
+        db.set(self.key, self.value, self.expire);
 
         Set::to_frame()
     }
