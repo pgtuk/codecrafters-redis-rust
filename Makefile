@@ -5,7 +5,7 @@ run:
 	cargo run
 
 test:
-	cargo test # -- --nocapture
+	cargo test -- --nocapture
 
 push: build
 	git add .

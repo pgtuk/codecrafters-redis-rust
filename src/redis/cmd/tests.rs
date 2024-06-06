@@ -1,5 +1,7 @@
 use bytes::Bytes;
 
+use tokio::time::{sleep, Duration};
+
 use super::*;
 use crate::redis::tests::make_frame;
 use crate::redis::db::Db;
@@ -171,4 +173,44 @@ async fn test_cmd_get() {
         data,
         expected,
     )
+}
+
+#[tokio::test]
+async fn test_cmd_set_ttl() {
+    let mut db = Db::new();
+
+    let input = b"*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n$2\r\npx\r\n$3\r\n100\r\n";
+    let frame = make_frame(input);
+
+    let cmd = Command::from_frame(frame).unwrap();
+    if let Command::Set(cmd) = cmd {
+        cmd.apply(&mut db);
+    };
+
+    let get = Get::new("grape".to_string());
+    let data = get.apply(&mut db);
+
+    let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));  
+    assert_eq!(data, expected);
+}
+
+#[tokio::test]
+async fn test_cmd_set_ttl_expire() {
+    let mut db = Db::new();
+
+    let input = b"*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n$2\r\npx\r\n$3\r\n100\r\n";
+    let frame = make_frame(input);
+
+    let cmd = Command::from_frame(frame).unwrap();
+    if let Command::Set(cmd) = cmd {
+        cmd.apply(&mut db);
+    };
+
+    sleep(Duration::from_millis(110)).await;
+
+    let get = Get::new("grape".to_string());
+    let data = get.apply(&mut db);
+
+    let expected = Frame::Null;  
+    assert_eq!(data, expected);
 }

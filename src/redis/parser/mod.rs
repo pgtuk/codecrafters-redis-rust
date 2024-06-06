@@ -4,7 +4,7 @@ use std::{
     vec,
     num::ParseIntError, 
 };
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
 use thiserror::Error;
 
 use super::frame::Frame;
@@ -76,7 +76,13 @@ impl Parser {
         match self.next()? {
             Frame::Integer(val) => Ok(val),
             Frame::Simple(val) => Ok(val.parse::<u64>()?),
-            Frame::Bulk(mut val) => Ok(val.get_u64()),
+            Frame::Bulk(val) => {
+                Ok(
+                    String::from_utf8(
+                        val.to_vec()
+                    ).unwrap().parse()?
+                ) 
+            }
             frame => {
                 Err(
                     ParserError::Other(
