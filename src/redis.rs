@@ -9,12 +9,16 @@ mod connection;
 use connection::Connection;
 
 mod cmd;
+mod config;
+pub use config::Config;
 
 mod db;
 use db::Db;
 
+
 mod frame;
 mod parser;
+
 
 pub struct Server {
     listener: TcpListener,
@@ -22,10 +26,10 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(addr: &str) -> Result<Server> {
+    pub async fn new(cfg: Config) -> Result<Server> {
         Ok(
             Server {
-                listener: TcpListener::bind(&addr).await?,
+                listener: TcpListener::bind(&cfg.addr()).await?,
                 db: Db::new(),
             }
         )
