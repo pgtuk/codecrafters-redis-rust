@@ -3,11 +3,14 @@ use bytes::Bytes;
 use tokio::time::{sleep, Duration};
 
 use super::*;
-use crate::redis::tests::make_frame;
-use crate::redis::db::Db;
-
-
-// PING
+use crate::redis::{
+    db::Db, 
+    tests::make_frame, 
+    Role
+};
+    
+    
+    // PING
 #[test]
 fn test_cmd_from_frame_ping_no_msg() {
     let frame = make_frame(b"*1\r\n$4\r\nPING\r\n");
@@ -213,4 +216,20 @@ async fn test_cmd_set_ttl_expire() {
 
     let expected = Frame::Null;  
     assert_eq!(data, expected);
+}
+
+#[test]
+fn test_cmd_info () {
+    let info = ServerInfo {
+        role: Role::Slave
+    };
+    let cmd = Info::new();
+
+    let frame = cmd.apply(&info);
+
+    let expected = Frame::Bulk(Bytes::from_static(
+        b"$10\r\nrole:slave\r\n"
+    ));
+    
+    assert_eq!(frame, expected)
 }

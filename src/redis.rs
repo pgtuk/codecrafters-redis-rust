@@ -28,12 +28,17 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(cfg: Config) -> Result<Server> {
+    pub async fn new(cfg: &Config) -> Result<Server> {
+        let addr = cfg.addr();
+        let role = match &cfg.replicaof {
+            Some(_) => Role::Slave,
+            None => Role::Master
+        };
         Ok(
             Server {
-                listener: TcpListener::bind(&cfg.addr()).await?,
+                listener: TcpListener::bind(addr).await?,
                 db: Db::new(),
-                info: ServerInfo { role: Role::Master }
+                info: ServerInfo { role }
             }
         )
     }
@@ -77,23 +82,23 @@ impl Server {
 }
 
 #[derive(Clone)]
-enum Role {
+pub enum Role {
     Master,
-    // Slave,
+    Slave,
 }
 
 impl fmt::Display for Role {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Role::Master => write!(f, "master"),
-            // Role::Slave => write!(f, "slave"),
+            Role::Slave => write!(f, "slave"),
         }
     }
 }
 
 #[derive(Clone)]
 pub struct ServerInfo {
-    role: Role
+    role: Role,
 }
 
 struct Handler {

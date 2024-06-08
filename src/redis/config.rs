@@ -1,6 +1,7 @@
 pub struct Config {
     pub host: String,
     pub port: String,
+    pub replicaof: Option<String>,
 }
 
 impl Config {
@@ -11,14 +12,15 @@ impl Config {
             match args[i].as_str() {
                 "--port" => cfg.port = extract_arg(&args, i + 1)?,
                 "--host" => cfg.host = extract_arg(&args, i + 1)?,
-                _ => ()
+                "--replicaof" => cfg.replicaof = Some(extract_arg(&args, i + 1)?),
+                unknown => return Err(format!("Unknown param: {}", unknown))
             }
         }
 
         Ok(cfg)
     }
 
-    pub fn addr(self) -> String {
+    pub fn addr(&self) -> String {
         format!("{}:{}", self.host, self.port)
     }
 }
@@ -28,6 +30,7 @@ impl Default for Config {
         Config {
             host: String::from("127.0.0.1"),
             port: String::from("6379"),
+            replicaof: None,
         }
     }
 }
