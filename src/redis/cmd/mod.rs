@@ -5,19 +5,20 @@ use super::{
     db::Db, 
     frame::Frame, 
     parser::Parser,
+    ServerInfo,
 };
-
-mod ping;
-use ping::Ping;
 
 mod echo;
 use echo::Echo;
-
+mod get;
+use get::Get;
+mod info;
+use info::Info;
+mod ping;
+use ping::Ping;
 mod set;
 use set::Set;
 
-mod get;
-use get::Get;
 
 
 #[derive(Debug, PartialEq)]
@@ -26,6 +27,7 @@ pub enum Command {
     Echo(Echo),
     Set(Set),
     Get(Get),
+    Info(Info),
 }
 
 impl Command {
@@ -40,19 +42,20 @@ impl Command {
             "echo" => Command::Echo(Echo::parse_args(&mut parser)?),
             "set" => Command::Set(Set::parse_args(&mut parser)?),
             "get" => Command::Get(Get::parse_args(&mut parser)?),
+            "info" => Command::Info(Info::parse_args()?),
             _ => unimplemented!(),
         };
 
         Ok(command)
     }
 
-    pub async fn apply(self, conn: &mut Connection, db: &mut Db) -> Result<()> {
+    pub async fn apply(self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
         let response_frame = match self {
-            Command::Ping(cmd) => {cmd.apply()},
             Command::Echo(cmd) => {cmd.apply()},
-            Command::Set(cmd) => {cmd.apply(db)},
             Command::Get(cmd) => {cmd.apply(db)},
-            // _ => unimplemented!()
+            Command::Info(cmd) => {cmd.apply(info)},
+            Command::Ping(cmd) => {cmd.apply()},
+            Command::Set(cmd) => {cmd.apply(db)},
         };
 
         conn.write_frame(&response_frame).await?;

@@ -1,4 +1,5 @@
-// use std::sync::Arc;
+use core::fmt;
+use std::fmt::Formatter;
 
 use anyhow::Result;
 
@@ -23,6 +24,7 @@ mod parser;
 pub struct Server {
     listener: TcpListener,
     db: Db,
+    info: ServerInfo,
 }
 
 impl Server {
@@ -31,6 +33,7 @@ impl Server {
             Server {
                 listener: TcpListener::bind(&cfg.addr()).await?,
                 db: Db::new(),
+                info: ServerInfo { role: Role::Master }
             }
         )
     }
@@ -42,6 +45,7 @@ impl Server {
             let mut handler = Handler {
                 connection: Connection::new(socket),
                 db: self.db.clone(),
+                info: self.info.clone(),
             };
 
             tokio::spawn(async move {
@@ -70,13 +74,32 @@ impl Server {
             tries *= 2;
         }
     }
+}
 
-    
+#[derive(Clone)]
+enum Role {
+    Master,
+    // Slave,
+}
+
+impl fmt::Display for Role {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Role::Master => write!(f, "master"),
+            // Role::Slave => write!(f, "slave"),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerInfo {
+    role: Role
 }
 
 struct Handler {
     connection: Connection,
     db: Db,
+    info: ServerInfo,
 }
 
 impl Handler {
@@ -92,7 +115,7 @@ impl Handler {
 
             let cmd = cmd::Command::from_frame(frame)?;
 
-            cmd.apply(&mut self.connection, &mut self.db).await?;
+            cmd.apply(&mut self.connection, &mut self.db, &self.info).await?;
         }
     }
 }
