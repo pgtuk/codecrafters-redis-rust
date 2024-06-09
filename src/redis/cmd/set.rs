@@ -47,10 +47,6 @@ impl Set {
     pub fn apply(self, db: &mut Db) -> Frame {
         db.set(self.key, self.value, self.expire);
 
-        Set::to_frame()
-    }
-
-    fn to_frame() -> Frame {
         Frame::Simple("OK".to_string())
     }
 }

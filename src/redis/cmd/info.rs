@@ -18,17 +18,13 @@ impl Info {
     }
 
     pub fn apply(self, info: &ServerInfo) -> Frame {
-        self.to_frame(info)
-    }
-    
-    fn to_frame (self, info: &ServerInfo) -> Frame {
         let string = format!(
             "role:{role}\r\n\
             master_replid:{replid}\r\n\
             master_repl_offset:{reploffset}",
             role=info.role,
             replid=info.replinfo.repl_id,
-            reploffset=info.replinfo.repl_offset,
+            reploffset=info.replinfo.repl_offset.lock().unwrap(),
         );
         let len = string.len();
 

@@ -24,10 +24,6 @@ impl Echo {
     }
 
     pub fn apply(self) -> Frame {
-        self.to_frame()
-    }
-
-    fn to_frame (self) -> Frame {
         Frame::Bulk(self.msg)
     }
 }

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use bytes::Bytes;
 
 use crate::redis::{
     db::Db,
@@ -26,13 +25,13 @@ impl Get {
     }
 
     pub fn apply(self, db: &mut Db) -> Frame {
-        Get::to_frame(db.get(&self.key))
-    }
-
-    fn to_frame(data: Option<Bytes>) -> Frame {
-        match data {
+        match db.get(&self.key) {
             Some(data) => Frame::Bulk(data),
             None => Frame::Null,
         }
-    } 
+    }
+
+    // fn to_frame(data: Option<Bytes>) -> Frame {
+    //     unimplemented!()
+    // } 
 }

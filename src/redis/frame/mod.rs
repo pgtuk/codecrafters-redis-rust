@@ -160,6 +160,17 @@ impl Frame {
             Frame::Array(_) => unimplemented!()
         }
     }
+
+    pub fn array() -> Frame {
+        Frame::Array(vec![])
+    }
+
+    pub fn add(&mut self, frame: Frame) {
+        match self {
+            Frame::Array(arr) => arr.push(frame),
+            _ => panic!("Must be an array frame")
+        }
+    }
 }
 
 fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {

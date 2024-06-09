@@ -1,18 +1,24 @@
+use super::utils::Addr;
+
 pub struct Config {
-    pub host: String,
-    pub port: String,
-    pub replicaof: Option<String>,
+    pub addr: Addr,
+    pub replicaof: Option<Addr>,
 }
 
 impl Config {
     pub fn parse(args: Vec<String>) -> Result<Config, String> {
         let len = args.len();
         let mut cfg = Config::default();
+
         for i in (1..len-1).step_by(2) {
             match args[i].as_str() {
-                "--port" => cfg.port = extract_arg(&args, i + 1)?,
-                "--host" => cfg.host = extract_arg(&args, i + 1)?,
-                "--replicaof" => cfg.replicaof = Some(extract_arg(&args, i + 1)?),
+                "--host" => cfg.addr.host = extract_arg(&args, i + 1)?,
+                "--port" => cfg.addr.port = extract_arg(&args, i + 1)?,
+                "--replicaof" => cfg.replicaof = Some(
+                    Config::parse_replicaof(
+                        extract_arg(&args, i + 1)?
+                    )?
+                ),
                 unknown => return Err(format!("Unknown param: {}", unknown))
             }
         }
@@ -20,16 +26,22 @@ impl Config {
         Ok(cfg)
     }
 
-    pub fn addr(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+    fn parse_replicaof(addr_line: String) -> Result<Addr, String> {
+        match addr_line.split_once(" ") {
+            Some((host, port)) => Ok(Addr{ 
+                host: host.to_string(), 
+                port: port.to_string() 
+            }),
+            None => Err("No master address provided".into())
+        }
     }
+
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            host: String::from("127.0.0.1"),
-            port: String::from("6379"),
+            addr: Addr::default(),
             replicaof: None,
         }
     }

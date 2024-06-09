@@ -13,7 +13,7 @@ async fn main() {
         process::exit(1);
     });
 
-    let mut redis = Server::new(&config).await
+    let mut redis = Server::setup(&config).await
         .expect("Failed to connect");
     
     if let Err(e) = redis.run().await {

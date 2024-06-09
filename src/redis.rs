@@ -1,25 +1,23 @@
 use core::fmt;
 use std::fmt::Formatter;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
-
+use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{self, Duration};
 
 mod connection;
 use connection::Connection;
-
 mod cmd;
 mod config;
 pub use config::Config;
-
 mod db;
 use db::Db;
-
-
 mod frame;
 mod parser;
+mod slave;
+mod utils;
+
 
 
 pub struct Server {
@@ -29,21 +27,41 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(cfg: &Config) -> Result<Server> {
-        let addr = cfg.addr();
+    fn new(listener: TcpListener, db: Db, info: ServerInfo) -> Server {
+        Server { listener, db, info }
+    }
+
+    pub async fn setup(cfg: &Config) -> Result<Server> {
         let role = match &cfg.replicaof {
             Some(_) => Role::Slave,
             None => Role::Master
         };
 
-        Ok(Server {
-            listener: TcpListener::bind(addr).await?,
-            db: Db::new(),
-            info: ServerInfo::new(role),
-        })
+        let server = Server::new(
+            TcpListener::bind(cfg.addr.to_string()).await?,
+            Db::new(),
+            ServerInfo::new(role, cfg.replicaof.clone())
+        );
+
+        Ok(server)
+    }
+
+    async fn on_startup(&self) -> Result<()> {
+        match self.info.role {
+            Role::Master => Ok(()),
+            Role::Slave => {
+                // let replinfo = .clone();
+                match &self.info.replinfo.replicaof {
+                    Some(master_addr) => slave::handshake(master_addr).await,
+                    None => bail!("No master address"),
+                }
+            },
+        }
     }
 
     pub async fn run(&mut self) -> Result<()> { 
+        self.on_startup().await?;
+
         loop {
             let socket = self.accept().await?;
             
@@ -103,20 +121,23 @@ pub struct ServerInfo {
 }
 
 impl ServerInfo {
-    fn new(role: Role) -> ServerInfo {
+    fn new(role: Role, replicaof: Option<utils::Addr>) -> ServerInfo {
         ServerInfo { 
             role, 
             replinfo: Arc::new(Replinfo {
                 repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb "),
-                repl_offset: 0,
-            }) 
+                repl_offset: Mutex::new(0),
+                replicaof: replicaof,
+            }),
+            
         }
     }
 }
 
 pub struct Replinfo {
     repl_id: String,
-    repl_offset: i64,
+    repl_offset: Mutex<i64>,
+    replicaof: Option<utils::Addr>,
 }
 
 struct Handler {

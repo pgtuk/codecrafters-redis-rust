@@ -15,7 +15,7 @@ use get::Get;
 mod info;
 use info::Info;
 mod ping;
-use ping::Ping;
+pub use ping::Ping;
 mod set;
 use set::Set;
 

@@ -27,13 +27,20 @@ impl Ping {
     }
 
     pub fn apply(self) -> Frame {
-        self.to_frame()
-    }
-    
-    fn to_frame (self) -> Frame {
         match self.msg {
             None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg.into()),
         }
+    }
+
+    pub fn to_frame(self) -> Frame {
+        let mut frame = Frame::array();
+
+        frame.add(Frame::Bulk("PING".into()));
+        if let Some(msg) = self.msg {
+            frame.add(Frame::Bulk(msg.into()))
+        }
+
+        frame
     }
 }
