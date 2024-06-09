@@ -1,5 +1,6 @@
 use core::fmt;
 use std::fmt::Formatter;
+use std::sync::Arc;
 
 use anyhow::Result;
 
@@ -34,13 +35,12 @@ impl Server {
             Some(_) => Role::Slave,
             None => Role::Master
         };
-        Ok(
-            Server {
-                listener: TcpListener::bind(addr).await?,
-                db: Db::new(),
-                info: ServerInfo { role }
-            }
-        )
+
+        Ok(Server {
+            listener: TcpListener::bind(addr).await?,
+            db: Db::new(),
+            info: ServerInfo::new(role),
+        })
     }
 
     pub async fn run(&mut self) -> Result<()> { 
@@ -99,6 +99,24 @@ impl fmt::Display for Role {
 #[derive(Clone)]
 pub struct ServerInfo {
     role: Role,
+    replinfo: Arc<Replinfo>,
+}
+
+impl ServerInfo {
+    fn new(role: Role) -> ServerInfo {
+        ServerInfo { 
+            role, 
+            replinfo: Arc::new(Replinfo {
+                repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb "),
+                repl_offset: 0,
+            }) 
+        }
+    }
+}
+
+pub struct Replinfo {
+    repl_id: String,
+    repl_offset: i64,
 }
 
 struct Handler {

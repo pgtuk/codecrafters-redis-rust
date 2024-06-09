@@ -220,9 +220,7 @@ async fn test_cmd_set_ttl_expire() {
 
 #[test]
 fn test_cmd_info () {
-    let info = ServerInfo {
-        role: Role::Slave
-    };
+    let info = ServerInfo::new(Role::Slave);
     let cmd = Info::new();
 
     let frame = cmd.apply(&info);

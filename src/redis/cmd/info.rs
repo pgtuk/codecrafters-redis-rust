@@ -23,8 +23,12 @@ impl Info {
     
     fn to_frame (self, info: &ServerInfo) -> Frame {
         let string = format!(
-            "role:{role}",
+            "role:{role}\r\n\
+            master_replid:{replid}\r\n\
+            master_repl_offset:{reploffset}",
             role=info.role,
+            replid=info.replinfo.repl_id,
+            reploffset=info.replinfo.repl_offset,
         );
         let len = string.len();
 
