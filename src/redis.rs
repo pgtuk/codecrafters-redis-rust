@@ -50,9 +50,8 @@ impl Server {
         match self.info.role {
             Role::Master => Ok(()),
             Role::Slave => {
-                // let replinfo = .clone();
                 match &self.info.replinfo.replicaof {
-                    Some(master_addr) => slave::handshake(master_addr).await,
+                    Some(master_addr) => Ok(slave::handshake(master_addr).await?),
                     None => bail!("No master address"),
                 }
             },

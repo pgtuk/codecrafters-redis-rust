@@ -56,7 +56,6 @@ impl Connection {
         match Frame::check(&mut buf) {
             Ok(_) => {
                 let len = buf.position() as usize;
-                dbg!(len);
 
                 buf.set_position(0);
 

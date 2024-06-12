@@ -140,24 +140,30 @@ impl Frame {
                 format!(":{}\r\n", val).as_bytes().to_vec()
             },
             Frame::Bulk(val) => {
-                // $<length>\r\n<data>\r\n
                 let mut buff: Vec<u8> = Vec::new();
 
                 buff.push(b'$');
-                for c in val.len().to_string().chars() {
-                    buff.push(c as u8);
-                }
-                buff.push(b'\r');
-                buff.push(b'\n');
-                for b in val {
-                    buff.push(*b);
-                }
-                buff.push(b'\r');
-                buff.push(b'\n');
+
+                buff.extend(int_as_bytes(&val.len()));     
+                add_cr(&mut buff);
+                buff.extend(val);
+                add_cr(&mut buff);
 
                 buff
             },
-            Frame::Array(_) => unimplemented!()
+            Frame::Array(arr) => {
+                let mut buff: Vec<u8> = Vec::new();
+                buff.push(b'*');
+
+                buff.extend(int_as_bytes(&arr.len()));
+
+                add_cr(&mut buff);
+                for frame in arr {
+                    buff.extend(frame.to_response());
+                }
+
+                buff
+            }
         }
     }
 
@@ -171,6 +177,20 @@ impl Frame {
             _ => panic!("Must be an array frame")
         }
     }
+}
+
+fn int_as_bytes(i: &usize) -> Vec<u8> {
+    let mut buff = Vec::new();
+
+    for c in i.to_string().chars() {
+        buff.push(c as u8);
+    }
+
+    buff
+}
+
+fn add_cr(buff: &mut Vec<u8>) {
+    buff.extend([b'\r', b'\n']);
 }
 
 fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
