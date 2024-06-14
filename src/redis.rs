@@ -126,7 +126,7 @@ impl ServerInfo {
             replinfo: Arc::new(Replinfo {
                 repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb "),
                 repl_offset: Mutex::new(0),
-                replicaof: replicaof,
+                replicaof,
             }),
             
         }

@@ -20,3 +20,7 @@ impl Default for Addr {
         }
     }
 }
+
+pub trait Named {
+    const NAME: &'static str;
+}

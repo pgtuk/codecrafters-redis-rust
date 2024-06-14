@@ -6,11 +6,18 @@ use crate::redis::{
         Parser, 
         ParserError,
     },
+    utils::Named,
 };
+
+use super::client_cmd::ClientCmd;
 
 #[derive(Debug, PartialEq)]
 pub struct Ping {
     msg: Option<String>,
+}
+
+impl Named for Ping {
+    const NAME: &'static str = "PING";
 }
 
 impl Ping {
@@ -33,12 +40,25 @@ impl Ping {
         }
     }
 
-    pub fn to_frame(self) -> Frame {
+    // pub fn to_frame(self) -> Frame {
+    //     let mut frame = Frame::array();
+
+    //     frame.add(Frame::Bulk(Ping::NAME.into()));
+    //     if let Some(msg) = self.msg {
+    //         frame.add(Frame::Bulk(msg.into()))
+    //     }
+
+    //     frame
+    // }
+}
+
+impl ClientCmd for Ping {
+    fn to_frame(&self) -> Frame {
         let mut frame = Frame::array();
 
-        frame.add(Frame::Bulk("PING".into()));
-        if let Some(msg) = self.msg {
-            frame.add(Frame::Bulk(msg.into()))
+        frame.add(Frame::Bulk(Ping::NAME.into()));
+        if let Some(msg) = &self.msg {
+            frame.add(Frame::Bulk(msg.clone().into()))
         }
 
         frame

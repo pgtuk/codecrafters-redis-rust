@@ -8,6 +8,8 @@ use super::{
     ServerInfo,
 };
 
+pub mod client_cmd;
+
 mod echo;
 use echo::Echo;
 mod get;
@@ -18,7 +20,8 @@ mod ping;
 pub use ping::Ping;
 mod set;
 use set::Set;
-
+pub mod replconf;
+use replconf::Replconf;
 
 
 #[derive(Debug, PartialEq)]
@@ -28,6 +31,7 @@ pub enum Command {
     Set(Set),
     Get(Get),
     Info(Info),
+    Replconf(Replconf)
 }
 
 impl Command {
@@ -43,6 +47,8 @@ impl Command {
             "set" => Command::Set(Set::parse_args(&mut parser)?),
             "get" => Command::Get(Get::parse_args(&mut parser)?),
             "info" => Command::Info(Info::parse_args()?),
+            // TODO: fix hardcoded
+            "replconf" => Command::Replconf(Replconf { param: replconf::ReplconfParam::ListeningPort, arg: "args".to_string() } ),
             _ => unimplemented!(),
         };
 
@@ -50,12 +56,15 @@ impl Command {
     }
 
     pub async fn apply(self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
+        // returns result of calling the command on server side
         let response_frame = match self {
+            Command::Ping(cmd) => {cmd.apply()},
             Command::Echo(cmd) => {cmd.apply()},
+            Command::Set(cmd) => {cmd.apply(db)},
             Command::Get(cmd) => {cmd.apply(db)},
             Command::Info(cmd) => {cmd.apply(info)},
-            Command::Ping(cmd) => {cmd.apply()},
-            Command::Set(cmd) => {cmd.apply(db)},
+            Command::Replconf(cmd) => {cmd.apply()},
+            // _ => unimplemented!()
         };
 
         conn.write_frame(&response_frame).await?;

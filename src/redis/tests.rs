@@ -37,5 +37,5 @@ async fn test_master_slave_handshake() {
     time::sleep(Duration::from_millis(100)).await;
 
     st.abort();
-    mt.abort();
+    mt.abort();  
 }

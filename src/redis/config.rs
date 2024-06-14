@@ -1,5 +1,6 @@
 use super::utils::Addr;
 
+#[derive(Default)]
 pub struct Config {
     pub addr: Addr,
     pub replicaof: Option<Addr>,
@@ -27,7 +28,7 @@ impl Config {
     }
 
     fn parse_replicaof(addr_line: String) -> Result<Addr, String> {
-        match addr_line.split_once(" ") {
+        match addr_line.split_once(' ') {
             Some((host, port)) => Ok(Addr{ 
                 host: host.to_string(), 
                 port: port.to_string() 
@@ -36,15 +37,6 @@ impl Config {
         }
     }
 
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            addr: Addr::default(),
-            replicaof: None,
-        }
-    }
 }
 
 fn extract_arg(args: &[String], i: usize) -> Result<String, String> {
