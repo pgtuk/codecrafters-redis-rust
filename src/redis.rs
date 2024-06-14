@@ -40,7 +40,7 @@ impl Server {
         let server = Server::new(
             TcpListener::bind(cfg.addr.to_string()).await?,
             Db::new(),
-            ServerInfo::new(role, cfg.replicaof.clone())
+            ServerInfo::new(cfg.addr.clone(), role, cfg.replicaof.clone())
         );
 
         Ok(server)
@@ -51,7 +51,7 @@ impl Server {
             Role::Master => Ok(()),
             Role::Slave => {
                 match &self.info.replinfo.replicaof {
-                    Some(master_addr) => Ok(slave::handshake(master_addr).await?),
+                    Some(master_addr) => Ok(slave::handshake(&self.info, master_addr).await?),
                     None => bail!("No master address"),
                 }
             },
@@ -115,13 +115,15 @@ impl fmt::Display for Role {
 
 #[derive(Clone)]
 pub struct ServerInfo {
+    addr: utils::Addr,
     role: Role,
     replinfo: Arc<Replinfo>,
 }
 
 impl ServerInfo {
-    fn new(role: Role, replicaof: Option<utils::Addr>) -> ServerInfo {
-        ServerInfo { 
+    fn new(addr: utils::Addr, role: Role, replicaof: Option<utils::Addr>) -> ServerInfo {
+        ServerInfo {
+            addr,
             role, 
             replinfo: Arc::new(Replinfo {
                 repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb "),

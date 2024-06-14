@@ -1,8 +1,10 @@
 use std::fmt;
+use anyhow::Result;
 
 use super::client_cmd::ClientCmd;
 use crate::redis::{
     frame::Frame,
+    parser::Parser,
     utils::Named,
 };
 
@@ -34,6 +36,10 @@ impl Named for Replconf {
 }
 
 impl Replconf {
+    pub fn parse_args(_: &mut Parser) -> Result<Replconf> {
+        Ok(Replconf { param: ReplconfParam::ListeningPort, arg: "args".to_string() })
+    }
+
     pub fn apply(self) -> Frame {
         Frame::Simple("OK".to_string())
     }

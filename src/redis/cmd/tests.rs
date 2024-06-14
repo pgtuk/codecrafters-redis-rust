@@ -4,9 +4,7 @@ use tokio::time::{sleep, Duration};
 
 use super::*;
 use crate::redis::{
-    db::Db, 
-    tests::make_frame,
-    Role
+    db::Db, tests::make_frame, utils::Addr, Role
 };
     
     
@@ -221,6 +219,7 @@ async fn test_cmd_set_ttl_expire() {
 #[test]
 fn test_cmd_info () {
     let info = ServerInfo::new(
+        Addr::default(),
         Role::Slave,
         None,
     );

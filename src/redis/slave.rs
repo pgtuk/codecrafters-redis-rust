@@ -8,19 +8,20 @@ use super::cmd::{
     Ping,
 };
 use super::connection::Connection;
+use crate::redis::ServerInfo;
 
 
-pub async fn handshake(master_addr: &Addr) -> Result<(), > {
+pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<(), > {
     let socket = TcpStream::connect(master_addr.to_string()).await?;
     let mut conn = Connection::new(socket);
-    
+
     sequence_step(
         &Ping::new(None),
         &mut conn, 
     ).await?;
 
     sequence_step(
-        &Replconf { param: ReplconfParam::ListeningPort, arg: master_addr.port.clone() },
+        &Replconf { param: ReplconfParam::ListeningPort, arg: slave_info.addr.port.clone() },
         &mut conn, 
     ).await?;
 

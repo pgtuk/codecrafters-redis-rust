@@ -47,8 +47,7 @@ impl Command {
             "set" => Command::Set(Set::parse_args(&mut parser)?),
             "get" => Command::Get(Get::parse_args(&mut parser)?),
             "info" => Command::Info(Info::parse_args()?),
-            // TODO: fix hardcoded
-            "replconf" => Command::Replconf(Replconf { param: replconf::ReplconfParam::ListeningPort, arg: "args".to_string() } ),
+            "replconf" => Command::Replconf(Replconf::parse_args(&mut parser)?),
             _ => unimplemented!(),
         };
 
