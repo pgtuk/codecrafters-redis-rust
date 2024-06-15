@@ -22,6 +22,8 @@ mod set;
 use set::Set;
 pub mod replconf;
 use replconf::Replconf;
+mod psync;
+pub use psync::Psync;
 
 
 #[derive(Debug, PartialEq)]
@@ -31,7 +33,8 @@ pub enum Command {
     Set(Set),
     Get(Get),
     Info(Info),
-    Replconf(Replconf)
+    Replconf(Replconf),
+    Psync(Psync),
 }
 
 impl Command {
@@ -48,6 +51,7 @@ impl Command {
             "get" => Command::Get(Get::parse_args(&mut parser)?),
             "info" => Command::Info(Info::parse_args()?),
             "replconf" => Command::Replconf(Replconf::parse_args(&mut parser)?),
+            "psync" => Command::Psync(Psync::parse_args(&mut parser)?),
             _ => unimplemented!(),
         };
 
@@ -63,6 +67,7 @@ impl Command {
             Command::Get(cmd) => {cmd.apply(db)},
             Command::Info(cmd) => {cmd.apply(info)},
             Command::Replconf(cmd) => {cmd.apply()},
+            Command::Psync(cmd) => {cmd.apply(info)},
             // _ => unimplemented!()
         };
 

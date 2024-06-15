@@ -6,6 +6,7 @@ use super::cmd::{
     client_cmd::ClientCmd,
     replconf::{Replconf, ReplconfParam}, 
     Ping,
+    Psync,
 };
 use super::connection::Connection;
 use crate::redis::ServerInfo;
@@ -27,6 +28,11 @@ pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<()
 
     sequence_step(
         &Replconf { param: ReplconfParam::Capa, arg: "psync2".to_string() },
+        &mut conn, 
+    ).await?;
+
+    sequence_step(
+        &Psync::default(),
         &mut conn, 
     ).await?;
 
