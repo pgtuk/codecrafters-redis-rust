@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::redis::{frame::Frame, ServerInfo};
-use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::cmd::ClientCmd;
 use crate::redis::connection::Connection;
 use crate::redis::utils::Named;
 

@@ -1,7 +1,7 @@
 use std::fmt;
+
 use anyhow::Result;
 
-use super::client_cmd::ClientCmd;
 use crate::redis::{
     frame::Frame,
     parser::Parser,
@@ -9,22 +9,7 @@ use crate::redis::{
 };
 use crate::redis::connection::Connection;
 
-
-#[derive(Debug, PartialEq)]
-pub enum ReplconfParam {
-    ListeningPort,
-    Capa,
-}
-
-impl fmt::Display for ReplconfParam {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ReplconfParam::ListeningPort => write!(f, "listening-port"),
-            ReplconfParam::Capa => write!(f, "capa"),
-        }
-    }
-}
-
+use super::ClientCmd;
 
 #[derive(Debug, PartialEq)]
 pub struct Replconf {
@@ -66,5 +51,20 @@ impl ClientCmd for Replconf {
         }
    
         frame
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ReplconfParam {
+    ListeningPort,
+    Capa,
+}
+
+impl fmt::Display for ReplconfParam {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ReplconfParam::ListeningPort => write!(f, "listening-port"),
+            ReplconfParam::Capa => write!(f, "capa"),
+        }
     }
 }

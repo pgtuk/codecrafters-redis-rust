@@ -1,6 +1,7 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use bytes::Bytes;
-use std::time::Duration;
 
 use crate::redis::{
     db::Db,
@@ -10,10 +11,9 @@ use crate::redis::{
         ParserError,
     },
 };
-use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::cmd::ClientCmd;
 use crate::redis::connection::Connection;
 use crate::redis::utils::{int_as_bytes, Named};
-
 
 #[derive(Debug, PartialEq)]
 pub struct Set {
@@ -80,4 +80,3 @@ impl ClientCmd for Set {
         frame
     }
 }
-

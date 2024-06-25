@@ -2,13 +2,12 @@ use anyhow::Result;
 use bytes::Bytes;
 
 use crate::redis::{
-    cmd::client_cmd::ClientCmd,
+    cmd::ClientCmd,
     connection::Connection,
     utils::Named
 };
 
 use super::{Frame, Parser};
-
 
 #[derive(Debug, PartialEq)]
 pub struct Echo {

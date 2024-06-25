@@ -1,30 +1,28 @@
 use anyhow::Result;
 
+use echo::Echo;
+use get::Get;
+use info::Info;
+pub use ping::Ping;
+pub use psync::Psync;
+use replconf::Replconf;
+use set::Set;
+
 use super::{
-    connection::Connection, 
+    connection::Connection,
     db::Db,
     frame::Frame,
     parser::Parser,
     ServerInfo,
 };
 
-pub mod client_cmd;
-
 mod echo;
-use echo::Echo;
 mod get;
-use get::Get;
 mod info;
-use info::Info;
 mod ping;
-pub use ping::Ping;
 mod set;
-use set::Set;
 pub mod replconf;
-use replconf::Replconf;
 mod psync;
-pub use psync::Psync;
-
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
@@ -73,6 +71,13 @@ impl Command {
 
         Ok(())
     }
+}
+
+pub trait ClientCmd {
+    // command representation in RESP:
+    // A client sends a request to the Redis server as an array of strings.
+    // The array frame containing the command and its arguments that the server should execute
+    fn to_frame(&self) -> Frame;
 }
 
 #[cfg(test)]

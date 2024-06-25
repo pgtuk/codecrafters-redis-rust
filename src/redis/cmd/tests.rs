@@ -1,20 +1,19 @@
-use bytes::Bytes;
-
-use tokio::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
 
-use tokio::time::{sleep, Duration};
+use bytes::Bytes;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::time::{Duration, sleep};
 
-use crate::Server;
-use super::*;
 use crate::redis::{
+    Config,
     db::Db,
-    tests::make_frame,
-    // utils::Addr,
     Role,
-    Config
+    tests::make_frame
 };
-use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::cmd::ClientCmd;
+use crate::Server;
+
+use super::*;
 
 fn config () -> Config {
     Config::default()

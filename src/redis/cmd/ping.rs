@@ -3,14 +3,14 @@ use anyhow::Result;
 use crate::redis::{
     frame::Frame,
     parser::{
-        Parser, 
+        Parser,
         ParserError,
     },
     utils::Named,
 };
 use crate::redis::connection::Connection;
 
-use super::client_cmd::ClientCmd;
+use super::ClientCmd;
 
 #[derive(Debug, PartialEq)]
 pub struct Ping {

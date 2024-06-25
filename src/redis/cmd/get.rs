@@ -2,13 +2,12 @@ use anyhow::Result;
 
 use crate::redis::{
     db::Db,
-    frame::Frame, 
+    frame::Frame,
     parser::Parser,
 };
-use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::cmd::ClientCmd;
 use crate::redis::connection::Connection;
 use crate::redis::utils::Named;
-
 
 #[derive(Debug, PartialEq)]
 pub struct Get {

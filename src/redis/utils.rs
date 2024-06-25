@@ -23,6 +23,10 @@ impl Default for Addr {
 
 pub trait Named {
     const NAME: &'static str;
+
+    fn name(&self) -> String {
+        Self::NAME.into()
+    }
 }
 
 pub fn int_as_bytes(i: &usize) -> Vec<u8> {

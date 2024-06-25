@@ -1,14 +1,14 @@
 use anyhow::Result;
-
 use base64::prelude::*;
-use super::client_cmd::ClientCmd;
+
 use crate::redis::{
     frame::Frame,
     parser::Parser,
-    utils::Named, ServerInfo,
+    ServerInfo, utils::Named,
 };
 use crate::redis::connection::Connection;
 
+use super::ClientCmd;
 
 const EMPTY_RDB: &str = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 

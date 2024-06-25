@@ -6,13 +6,14 @@ use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{self, Duration};
 
-mod connection;
+pub use config::Config;
 use connection::Connection;
+use db::Db;
+
+mod connection;
 mod cmd;
 mod config;
-pub use config::Config;
 mod db;
-use db::Db;
 mod frame;
 mod parser;
 mod slave;
@@ -118,6 +119,7 @@ pub struct ServerInfo {
     addr: utils::Addr,
     role: Role,
     replinfo: Arc<Replinfo>,
+    replicas_connection_pool: Arc<Vec<&'static Connection>>,
 }
 
 impl ServerInfo {
@@ -130,7 +132,7 @@ impl ServerInfo {
                 repl_offset: Mutex::new(0),
                 replicaof,
             }),
-            
+            replicas_connection_pool: Arc::new(Vec::new()),
         }
     }
 }
@@ -161,6 +163,11 @@ impl Handler {
             let cmd = cmd::Command::from_frame(frame)?;
 
             cmd.apply(&mut self.connection, &mut self.db, &self.info).await?;
+
+            // TODO:
+            // 1. if cmd is replconf & server is master => ensure connection is saved to `replicas_connection_pool`
+            // 2. if cmd is of "write" type (set, del, etc.) & self is master =>
+            // propagate cmd to all replicas through `replicas_connection_pool`
         }
     }
 }
