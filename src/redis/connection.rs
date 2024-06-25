@@ -9,6 +9,7 @@ use tokio::{
     }, 
     net::TcpStream
 };
+use crate::redis::utils::{add_cr, int_as_bytes};
 
 use super::frame::{Frame, FrameError};
 
@@ -48,6 +49,19 @@ impl Connection {
         self.stream.write_all(&frame.to_response()).await?;
         self.stream.flush().await?;
         
+        Ok(())
+    }
+
+    pub async fn write_rdb(&mut self, rdb: &Vec<u8>) -> Result<(), FrameError>{
+        let mut buff: Vec<u8> = Vec::new();
+        buff.push(b'$');
+        buff.extend(int_as_bytes(&rdb.len()));
+        add_cr(&mut buff);
+        buff.extend(rdb);
+
+        self.stream.write_all(&buff).await?;
+        self.stream.flush().await?;
+
         Ok(())
     }
 

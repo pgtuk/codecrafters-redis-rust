@@ -8,7 +8,7 @@ use std::{
     string::FromUtf8Error, vec,
 };
 
-use crate::redis::utils::int_as_bytes;
+use crate::redis::utils::{add_cr, int_as_bytes};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -181,9 +181,6 @@ impl Frame {
     }
 }
 
-fn add_cr(buff: &mut Vec<u8>) {
-    buff.extend([b'\r', b'\n']);
-}
 
 fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     if !src.has_remaining() {

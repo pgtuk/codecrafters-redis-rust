@@ -34,3 +34,7 @@ pub fn int_as_bytes(i: &usize) -> Vec<u8> {
 
     buff
 }
+
+pub fn add_cr(buff: &mut Vec<u8>) {
+    buff.extend([b'\r', b'\n']);
+}

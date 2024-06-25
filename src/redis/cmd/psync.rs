@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use base64::prelude::*;
 use super::client_cmd::ClientCmd;
 use crate::redis::{
     frame::Frame,
@@ -31,13 +32,13 @@ impl Psync {
         let frame = Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.repl_id));
 
         conn.write_frame(&frame).await?;
-        conn.write_frame(&Psync::build_rdb_frame()).await?;
+        conn.write_rdb(&Psync::build_rdb_frame()).await?;
 
         Ok(())
     }
 
-    fn build_rdb_frame() -> Frame {
-        Frame::Bulk(EMPTY_RDB.into())
+    fn build_rdb_frame() -> Vec<u8> {
+        BASE64_STANDARD.decode(EMPTY_RDB).unwrap()
     }
 }
 
