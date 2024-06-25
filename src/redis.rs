@@ -149,12 +149,12 @@ struct Handler {
 
 impl Handler {
     async fn handle_connection(&mut self) -> Result<()> {
-        // TODO Write ERROR
         loop {
             let opt_frame =  self.connection.read_frame().await?;
             
             let frame = match opt_frame {
                 Some(frame) => {frame},
+                // None means that the socket was closed by peer
                 None => return Ok(()),
             };
 

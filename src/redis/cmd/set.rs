@@ -10,6 +10,9 @@ use crate::redis::{
         ParserError,
     },
 };
+use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::connection::Connection;
+use crate::redis::utils::{int_as_bytes, Named};
 
 
 #[derive(Debug, PartialEq)]
@@ -18,6 +21,10 @@ pub struct Set {
     value: Bytes,
 
     expire: Option<Duration>,
+}
+
+impl Named for Set {
+    const NAME: &'static str = "SET";
 }
 
 impl Set {
@@ -44,10 +51,33 @@ impl Set {
         Ok(Set::new(key, value, expire))
     }
 
-    pub fn apply(self, db: &mut Db) -> Frame {
+    pub async fn apply(self, conn: &mut Connection, db: &mut Db) -> Result<()> {
         db.set(self.key, self.value, self.expire);
 
-        Frame::Simple("OK".to_string())
+        let frame = Frame::Simple("OK".to_string());
+
+        conn.write_frame(&frame).await?;
+
+        Ok(())
+    }
+}
+
+impl ClientCmd for Set {
+    fn to_frame(&self) -> Frame {
+        let mut frame = Frame::array();
+
+        frame.add(Frame::Bulk(Set::NAME.into()));
+        frame.add(Frame::Bulk(self.key.clone().into()));
+        frame.add(Frame::Bulk(self.value.clone()));
+
+        if let Some(duration) = self.expire {
+             frame.add(Frame::Bulk("PX".into()));
+             frame.add(Frame::Bulk(
+                Bytes::from(int_as_bytes(&(duration.as_millis() as usize)))
+             ));
+        }
+
+        frame
     }
 }
 

@@ -7,6 +7,7 @@ use crate::redis::{
     parser::Parser,
     utils::Named,
 };
+use crate::redis::connection::Connection;
 
 
 #[derive(Debug, PartialEq)]
@@ -40,8 +41,12 @@ impl Replconf {
         Ok(Replconf { param: ReplconfParam::ListeningPort, arg: "args".to_string() })
     }
 
-    pub fn apply(self) -> Frame {
-        Frame::Simple("OK".to_string())
+    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
+        let frame = Frame::Simple("OK".to_string());
+
+        conn.write_frame(&frame).await?;
+
+        Ok(())
     }
 }
 

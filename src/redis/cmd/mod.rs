@@ -2,8 +2,8 @@ use anyhow::Result;
 
 use super::{
     connection::Connection, 
-    db::Db, 
-    frame::Frame, 
+    db::Db,
+    frame::Frame,
     parser::Parser,
     ServerInfo,
 };
@@ -60,18 +60,16 @@ impl Command {
 
     pub async fn apply(self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
         // returns result of calling the command on server side
-        let response_frame = match self {
-            Command::Ping(cmd) => {cmd.apply()},
-            Command::Echo(cmd) => {cmd.apply()},
-            Command::Set(cmd) => {cmd.apply(db)},
-            Command::Get(cmd) => {cmd.apply(db)},
-            Command::Info(cmd) => {cmd.apply(info)},
-            Command::Replconf(cmd) => {cmd.apply()},
-            Command::Psync(cmd) => {cmd.apply(info)},
+        match self {
+            Command::Ping(cmd) => {cmd.apply(conn).await?},
+            Command::Echo(cmd) => {cmd.apply(conn).await?},
+            Command::Set(cmd) => {cmd.apply(conn, db).await?},
+            Command::Get(cmd) => {cmd.apply(conn, db).await?},
+            Command::Info(cmd) => {cmd.apply(conn, info).await?},
+            Command::Replconf(cmd) => {cmd.apply(conn).await?},
+            Command::Psync(cmd) => {cmd.apply(conn, info).await?},
             // _ => unimplemented!()
         };
-
-        conn.write_frame(&response_frame).await?;
 
         Ok(())
     }

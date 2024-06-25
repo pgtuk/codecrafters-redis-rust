@@ -1,12 +1,17 @@
 use anyhow::Result;
 
-use crate::redis::{
-    frame::Frame,
-    ServerInfo,
-};
+use crate::redis::{frame::Frame, ServerInfo};
+use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::connection::Connection;
+use crate::redis::utils::Named;
 
 #[derive(Debug, PartialEq)]
 pub struct Info {}
+
+impl Named for Info {
+    const NAME: &'static str = "INFO";
+}
+
 
 impl Info {
     pub fn new() -> Info {
@@ -17,16 +22,32 @@ impl Info {
         Ok(Info::new())
     }
 
-    pub fn apply(self, info: &ServerInfo) -> Frame {
-        let string = format!(
-            "role:{role}\r\n\
-            master_replid:{replid}\r\nmaster_repl_offset:{reploffset}",
+    pub async fn apply(self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
+        let string = Info::build_info_string(info);
+
+        let frame = Frame::Bulk(string.into());
+
+        conn.write_frame(&frame).await?;
+
+        Ok(())
+    }
+
+    fn build_info_string(info: &ServerInfo) -> String {
+        format!(
+            "role:{role}\nmaster_replid:{replid}\nmaster_repl_offset:{reploffset}",
             role=info.role,
             replid=info.replinfo.repl_id,
             reploffset=info.replinfo.repl_offset.lock().unwrap(),
-        );
-        let len = string.len();
+        )
+    }
+}
 
-        Frame::Bulk(format!("${len}\r\n{string}\r\n").into())
+impl ClientCmd for Info {
+    fn to_frame(&self) -> Frame {
+        let mut frame = Frame::array();
+
+        frame.add(Frame::Bulk(Info::NAME.into()));
+
+        frame
     }
 }

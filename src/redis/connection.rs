@@ -13,6 +13,7 @@ use tokio::{
 use super::frame::{Frame, FrameError};
 
 
+#[derive(Debug)]
 pub struct Connection {
     stream: BufWriter<TcpStream>,
     buffer: BytesMut,

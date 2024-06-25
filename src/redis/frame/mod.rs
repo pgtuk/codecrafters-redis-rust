@@ -8,6 +8,8 @@ use std::{
     string::FromUtf8Error, vec,
 };
 
+use crate::redis::utils::int_as_bytes;
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
@@ -144,7 +146,7 @@ impl Frame {
 
                 buff.push(b'$');
 
-                buff.extend(int_as_bytes(&val.len()));     
+                buff.extend(int_as_bytes(&val.len()));
                 add_cr(&mut buff);
                 buff.extend(val);
                 add_cr(&mut buff);
@@ -177,16 +179,6 @@ impl Frame {
             _ => panic!("Must be an array frame")
         }
     }
-}
-
-fn int_as_bytes(i: &usize) -> Vec<u8> {
-    let mut buff = Vec::new();
-
-    for c in i.to_string().chars() {
-        buff.push(c as u8);
-    }
-
-    buff
 }
 
 fn add_cr(buff: &mut Vec<u8>) {
@@ -272,13 +264,13 @@ impl From<TryFromIntError> for FrameError {
 
 impl From<std::io::Error> for FrameError {
     fn from(value: std::io::Error) -> FrameError {
-        value.into()
+        FrameError::Other(format!("{:?}", value))
     }
 }
 
 impl From<ParseIntError> for FrameError {
-    fn from(value: ParseIntError) -> FrameError {
-        value.into()
+    fn from(_: ParseIntError) -> FrameError {
+        FrameError::Other("Unable to parse int".into())
     }
 }
 

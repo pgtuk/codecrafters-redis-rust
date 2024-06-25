@@ -24,3 +24,13 @@ impl Default for Addr {
 pub trait Named {
     const NAME: &'static str;
 }
+
+pub fn int_as_bytes(i: &usize) -> Vec<u8> {
+    let mut buff = Vec::new();
+
+    for c in i.to_string().chars() {
+        buff.push(c as u8);
+    }
+
+    buff
+}

@@ -5,11 +5,18 @@ use crate::redis::{
     frame::Frame, 
     parser::Parser,
 };
+use crate::redis::cmd::client_cmd::ClientCmd;
+use crate::redis::connection::Connection;
+use crate::redis::utils::Named;
 
 
 #[derive(Debug, PartialEq)]
 pub struct Get {
     key: String,
+}
+
+impl Named for Get {
+    const NAME: &'static str = "GET";
 }
 
 impl Get {
@@ -24,14 +31,25 @@ impl Get {
         }
     }
 
-    pub fn apply(self, db: &mut Db) -> Frame {
-        match db.get(&self.key) {
+    pub async fn apply(self, conn: &mut Connection, db: &mut Db) -> Result<()> {
+        let frame = match db.get(&self.key) {
             Some(data) => Frame::Bulk(data),
             None => Frame::Null,
-        }
-    }
+        };
 
-    // fn to_frame(data: Option<Bytes>) -> Frame {
-    //     unimplemented!()
-    // } 
+        conn.write_frame(&frame).await?;
+
+        Ok(())
+    }
+}
+
+impl ClientCmd for Get {
+    fn to_frame(&self) -> Frame {
+        let mut frame = Frame::array();
+
+        frame.add(Frame::Bulk(Get::NAME.into()));
+        frame.add(Frame::Bulk(self.key.clone().into()));
+
+        frame
+    }
 }

@@ -1,15 +1,24 @@
 use anyhow::Result;
 use bytes::Bytes;
 
-use super::{
-    Frame,
-    Parser
+use crate::redis::{
+    cmd::client_cmd::ClientCmd,
+    connection::Connection,
+    utils::Named
 };
+
+use super::{Frame, Parser};
+
 
 #[derive(Debug, PartialEq)]
 pub struct Echo {
     msg: Bytes,
 }
+
+impl Named for Echo {
+    const NAME: &'static str = "ECHO";
+}
+
 
 impl Echo {
     pub fn new(msg: Bytes) -> Echo {
@@ -23,7 +32,22 @@ impl Echo {
         }
     }
 
-    pub fn apply(self) -> Frame {
-        Frame::Bulk(self.msg)
+    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
+        let frame = Frame::Bulk(self.msg);
+
+        conn.write_frame(&frame).await?;
+
+        Ok(())
+    }
+}
+
+impl ClientCmd for Echo {
+    fn to_frame(&self) -> Frame {
+        let mut frame = Frame::array();
+
+        frame.add(Frame::Bulk(Echo::NAME.into()));
+        frame.add(Frame::Bulk(self.msg.clone()));
+
+        frame
     }
 }

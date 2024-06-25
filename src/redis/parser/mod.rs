@@ -107,8 +107,8 @@ impl From<&str> for ParserError {
 }
 
 impl From<ParseIntError> for ParserError {
-    fn from(value: ParseIntError) -> ParserError {
-        value.into()
+    fn from(_: ParseIntError) -> ParserError {
+        ParserError::Other("Unable to parse int".into())
     }
 }
 

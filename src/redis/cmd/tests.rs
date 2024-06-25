@@ -1,14 +1,48 @@
 use bytes::Bytes;
 
+use tokio::net::{TcpListener, TcpStream};
+use std::net::SocketAddr;
+
 use tokio::time::{sleep, Duration};
 
+use crate::Server;
 use super::*;
 use crate::redis::{
-    db::Db, tests::make_frame, utils::Addr, Role
+    db::Db,
+    tests::make_frame,
+    // utils::Addr,
+    Role,
+    Config
 };
-    
-    
-    // PING
+use crate::redis::cmd::client_cmd::ClientCmd;
+
+fn config () -> Config {
+    Config::default()
+}
+
+async fn start_server() -> SocketAddr {
+    // redis server fixture
+
+    let cfg = config();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let mut server = Server::new(
+        listener,
+        Db::new(),
+        ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.replicaof.clone())
+    );
+    tokio::spawn(async move { server.run().await });
+
+    addr
+}
+
+async fn prepare_conn(addr: SocketAddr) -> Connection {
+    let stream = TcpStream::connect(addr).await.unwrap();
+    Connection::new(stream)
+}
+
+// PING
 #[test]
 fn test_cmd_from_frame_ping_no_msg() {
     let frame = make_frame(b"*1\r\n$4\r\nPING\r\n");
@@ -41,26 +75,35 @@ fn test_cmd_from_frame_ping_with_msg() {
     )
 }
 
-#[test]
-fn test_cmd_ping_no_msg_to_response() {
+#[tokio::test]
+async fn test_cmd_ping_no_msg() {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
+
     let ping = Ping::new(None);
+    conn.write_frame(&ping.to_frame()).await.unwrap();
 
+    let response_frame = conn.read_frame().await.unwrap().unwrap();
     let expected = Frame::Simple(String::from("PONG"));
-
     assert_eq!(
-        ping.apply(),
-        expected,
+        response_frame,
+        expected
     )
 }
 
-#[test]
-fn test_cmd_ping_with_msg_to_response() {
-    let ping = Ping::new(Some(String::from("Hello there")));
+#[tokio::test]
+async fn test_cmd_ping_with_msg_to_response() {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
 
+    let ping = Ping::new(Some(String::from("Hello there")));
+    conn.write_frame(&ping.to_frame()).await.unwrap();
+
+    let response_frame = conn.read_frame().await.unwrap().unwrap();
     let expected = Frame::Bulk(Bytes::from_static(b"Hello there"));
 
     assert_eq!(
-        ping.apply(),
+        response_frame,
         expected,
     )
 }
@@ -83,14 +126,19 @@ fn test_cmd_from_frame_echo() {
     )
 }
 
-#[test]
-fn test_cmd_echo_to_response() {
-    let echo = Echo::new(Bytes::from_static(b"hey"));
+#[tokio::test]
+async fn test_cmd_echo_to_response() {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
 
+    let echo = Echo::new(Bytes::from_static(b"hey"));
+    conn.write_frame(&echo.to_frame()).await.unwrap();
+
+    let response_frame = conn.read_frame().await.unwrap().unwrap();
     let expected = Frame::Bulk(Bytes::from_static(b"hey"));
 
     assert_eq!(
-        echo.apply(),
+        response_frame,
         expected,
     )
 }
@@ -105,7 +153,7 @@ fn test_cmd_from_frame_set() {
 
     let expected = Command::Set(
         Set::new(
-            "hey".to_string(), 
+            "hey".to_string(),
             Bytes::from_static(b"you"),
             None,
         )
@@ -135,101 +183,87 @@ fn test_cmd_from_frame_get() {
 }
 
 #[tokio::test]
-async fn test_cmd_set() {
-    let mut db = Db::new();
-
-    let set = Set::new(
-        "hey".to_string(), 
-        Bytes::from_static(b"you"), 
-        None,
-    );
-
-    set.apply(&mut db);
-
-    let expected = Bytes::from_static(b"you");    
-
-    assert_eq!(
-        db.get("hey").unwrap(),
-        expected,
-    )
-}
-
-#[tokio::test]
-async fn test_cmd_get() {
-    let mut db = Db::new();
+async fn test_cmd_set_get() {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
 
     let set = Set::new(
         "hey".to_string(),
-        Bytes::from_static(b"you"), 
+        Bytes::from_static(b"you"),
         None,
     );
-    set.apply(&mut db);
 
-    let get = Get::new("hey".to_string());
-    let data = get.apply(&mut db);
-    
-    let expected = Frame::Bulk(Bytes::from_static(b"you"));    
+    conn.write_frame(&set.to_frame()).await.unwrap();
+    let response_frame = conn.read_frame().await.unwrap().unwrap();
+    let expected = Frame::Simple("OK".to_string());
 
     assert_eq!(
-        data,
+        response_frame,
         expected,
+    );
+
+    let get = Get::new("hey".to_string());
+    conn.write_frame(&get.to_frame()).await.unwrap();
+
+    let response_frame = conn.read_frame().await.unwrap().unwrap();
+    let expected = Frame::Bulk(Bytes::from_static(b"you"));
+
+    assert_eq!(
+        response_frame,
+        expected
     )
 }
 
+
 #[tokio::test]
-async fn test_cmd_set_ttl() {
-    let mut db = Db::new();
+async fn test_cmd_set_with_ttl() {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
 
     let input = b"*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n$2\r\npx\r\n$3\r\n100\r\n";
     let frame = make_frame(input);
 
     let cmd = Command::from_frame(frame).unwrap();
-    if let Command::Set(cmd) = cmd {
-        cmd.apply(&mut db);
+    if let Command::Set(set) = cmd {
+        conn.write_frame(&set.to_frame()).await.unwrap();
     };
 
-    let get = Get::new("grape".to_string());
-    let data = get.apply(&mut db);
+    // clean buffer from response to SET command
+    conn.read_frame().await.unwrap().unwrap();
 
-    let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));  
-    assert_eq!(data, expected);
+    let get = Get::new("grape".to_string());
+    conn.write_frame(&get.to_frame()).await.unwrap();
+
+    let before_expire = conn.read_frame().await.unwrap().unwrap();
+    let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));
+
+    assert_eq!(before_expire, expected);
+
+    sleep(Duration::from_millis(100)).await;
+
+    conn.write_frame(&get.to_frame()).await.unwrap();
+
+    let after_expire = conn.read_frame().await.unwrap().unwrap();
+    let expected = Frame::Null;
+
+    assert_eq!(after_expire, expected);
 }
+
 
 #[tokio::test]
-async fn test_cmd_set_ttl_expire() {
-    let mut db = Db::new();
+async fn test_cmd_info () {
+    let addr = start_server().await;
+    let mut conn = prepare_conn(addr).await;
 
-    let input = b"*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n$2\r\npx\r\n$3\r\n100\r\n";
-    let frame = make_frame(input);
+    let info = Info::new();
+    conn.write_frame(&info.to_frame()).await.unwrap();
 
-    let cmd = Command::from_frame(frame).unwrap();
-    if let Command::Set(cmd) = cmd {
-        cmd.apply(&mut db);
-    };
-
-    sleep(Duration::from_millis(110)).await;
-
-    let get = Get::new("grape".to_string());
-    let data = get.apply(&mut db);
-
-    let expected = Frame::Null;  
-    assert_eq!(data, expected);
-}
-
-#[test]
-fn test_cmd_info () {
-    let info = ServerInfo::new(
-        Addr::default(),
-        Role::Slave,
-        None,
-    );
-    let cmd = Info::new();
-
-    let frame = cmd.apply(&info);
+    let response = conn.read_frame().await.unwrap().unwrap();
+    // dbg!(frame);
 
     let expected = Frame::Bulk(Bytes::from_static(
-        b"$89\r\nrole:slave\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb \r\nmaster_repl_offset:0\r\n"
+        b"role:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"
     ));
-    
-    assert_eq!(frame, expected)
+
+    assert_eq!(response, expected)
 }
