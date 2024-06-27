@@ -1,10 +1,9 @@
-use bytes::Bytes;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
+use bytes::Bytes;
 use tokio::sync::Notify;
-use tokio::time::{sleep_until, Duration, Instant};
-
+use tokio::time::{Duration, Instant, sleep_until};
 
 #[derive(Debug, Clone)]
 pub struct Db {
@@ -62,8 +61,8 @@ impl Db {
 
         let expires_at =  expire.map(|duration| {
             let expire = Instant::now() + duration;
-            notify = state.expirations.first().map(|frst_exprtn|
-                frst_exprtn.0 > expire
+            notify = state.expirations.first().map(|first_expire|
+                first_expire.0 > expire
             ).unwrap_or(true);
 
             expire
