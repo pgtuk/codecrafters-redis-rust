@@ -56,7 +56,7 @@ impl Command {
         Ok(command)
     }
 
-    pub async fn apply(self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
         // returns result of calling the command on server side
         match self {
             Command::Ping(cmd) => {cmd.apply(conn).await?},
@@ -70,6 +70,14 @@ impl Command {
         };
 
         Ok(())
+    }
+
+    pub fn is_write(&self) -> bool {
+        matches!(self, Command::Set(_))
+    }
+
+    pub fn is_handshake(&self) -> bool {
+        matches!(self, Command::Replconf(_))
     }
 }
 

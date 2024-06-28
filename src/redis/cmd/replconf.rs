@@ -26,7 +26,7 @@ impl Replconf {
         Ok(Replconf { param: ReplconfParam::ListeningPort, arg: "args".to_string() })
     }
 
-    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
         let frame = Frame::Simple("OK".to_string());
 
         conn.write_frame(&frame).await?;

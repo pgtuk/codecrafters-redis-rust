@@ -31,8 +31,8 @@ impl Echo {
         }
     }
 
-    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
-        let frame = Frame::Bulk(self.msg);
+    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
+        let frame = Frame::Bulk(self.msg.clone());
 
         conn.write_frame(&frame).await?;
 

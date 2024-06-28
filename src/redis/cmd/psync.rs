@@ -28,7 +28,7 @@ impl Psync {
         Ok(Psync { replication_id: "replication_id".to_string(), offset: 1 })
     }
 
-    pub async fn apply(self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
         let frame = Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.repl_id));
 
         conn.write_frame(&frame).await?;

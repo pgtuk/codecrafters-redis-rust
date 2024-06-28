@@ -4,10 +4,12 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
 use tokio::time::{self, Duration};
 
+use channels::ChannelManager;
 pub use config::Config;
-use connection::Connection;
+use connection::{Connection, Handler};
 use db::Db;
 
 mod connection;
@@ -18,18 +20,27 @@ mod frame;
 mod parser;
 mod slave;
 mod utils;
+mod replication;
+mod channels;
 
-
+type ReplConnectionPool = Arc<Mutex<Vec<&'static Connection>>>;
 
 pub struct Server {
     listener: TcpListener,
     db: Db,
     info: ServerInfo,
+
+    repl_connection_pool: Option<ReplConnectionPool>
 }
 
 impl Server {
     fn new(listener: TcpListener, db: Db, info: ServerInfo) -> Server {
-        Server { listener, db, info }
+        Server {
+            listener,
+            db,
+            info,
+            repl_connection_pool: None
+        }
     }
 
     pub async fn setup(cfg: &Config) -> Result<Server> {
@@ -41,35 +52,48 @@ impl Server {
         let server = Server::new(
             TcpListener::bind(cfg.addr.to_string()).await?,
             Db::new(),
-            ServerInfo::new(cfg.addr.clone(), role, cfg.replicaof.clone())
+            ServerInfo::new(cfg.addr.clone(), role, cfg.replicaof.clone()),
         );
 
         Ok(server)
     }
 
-    async fn on_startup(&self) -> Result<()> {
+    async fn on_startup(&mut self) -> Result<()> {
         match self.info.role {
-            Role::Master => Ok(()),
             Role::Slave => {
                 match &self.info.replinfo.replicaof {
                     Some(master_addr) => Ok(slave::handshake(&self.info, master_addr).await?),
                     None => bail!("No master address"),
                 }
             },
+            Role::Master => {
+                self.repl_connection_pool = Some(Arc::new(Mutex::new(vec![])));
+                Ok(())
+            }
         }
     }
 
-    pub async fn run(&mut self) -> Result<()> { 
+    pub async fn run(&mut self) -> Result<()> {
+        // TODO: use connection pool
         self.on_startup().await?;
+
+        let (tx, rx) = mpsc::channel(32);
+
+        // TODO: dedicate some time to naming!
+        let mut manager = ChannelManager::new(rx);
+        tokio::spawn(async move {
+            manager.run().await
+        });
 
         loop {
             let socket = self.accept().await?;
             
-            let mut handler = Handler {
-                connection: Connection::new(socket),
-                db: self.db.clone(),
-                info: self.info.clone(),
-            };
+            let mut handler = Handler::new(
+                Connection::new(socket),
+                self.db.clone(),
+                self.info.clone(),
+                tx.clone(),
+            );
 
             tokio::spawn(async move {
                 if let Err(e) = handler.handle_connection().await {
@@ -77,6 +101,8 @@ impl Server {
                 };
             });
         }
+
+        // drop(tx)
     }
 
     async fn accept(&mut self) -> Result<TcpStream> {
@@ -119,7 +145,6 @@ pub struct ServerInfo {
     addr: utils::Addr,
     role: Role,
     replinfo: Arc<Replinfo>,
-    replicas_connection_pool: Arc<Vec<&'static Connection>>,
 }
 
 impl ServerInfo {
@@ -132,7 +157,6 @@ impl ServerInfo {
                 repl_offset: Mutex::new(0),
                 replicaof,
             }),
-            replicas_connection_pool: Arc::new(Vec::new()),
         }
     }
 }
@@ -142,36 +166,6 @@ pub struct Replinfo {
     repl_offset: Mutex<i64>,
     replicaof: Option<utils::Addr>,
 }
-
-struct Handler {
-    connection: Connection,
-    db: Db,
-    info: ServerInfo,
-}
-
-impl Handler {
-    async fn handle_connection(&mut self) -> Result<()> {
-        loop {
-            let opt_frame =  self.connection.read_frame().await?;
-            
-            let frame = match opt_frame {
-                Some(frame) => {frame},
-                // None means that the socket was closed by peer
-                None => return Ok(()),
-            };
-
-            let cmd = cmd::Command::from_frame(frame)?;
-
-            cmd.apply(&mut self.connection, &mut self.db, &self.info).await?;
-
-            // TODO:
-            // 1. if cmd is replconf & server is master => ensure connection is saved to `replicas_connection_pool`
-            // 2. if cmd is of "write" type (set, del, etc.) & self is master =>
-            // propagate cmd to all replicas through `replicas_connection_pool`
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests;

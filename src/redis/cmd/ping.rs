@@ -34,10 +34,10 @@ impl Ping {
         }
     }
 
-    pub async fn apply(self, conn: &mut Connection) -> Result<()> {
-        let frame = match self.msg {
+    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
+        let frame = match &self.msg {
             None => Frame::Simple("PONG".to_string()),
-            Some(msg) => Frame::Bulk(msg.into()),
+            Some(msg) => Frame::Bulk(msg.clone().into()),
         };
 
         conn.write_frame(&frame).await?;

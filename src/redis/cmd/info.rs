@@ -22,7 +22,7 @@ impl Info {
         Ok(Info::new())
     }
 
-    pub async fn apply(self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
         let string = Info::build_info_string(info);
 
         let frame = Frame::Bulk(string.into());

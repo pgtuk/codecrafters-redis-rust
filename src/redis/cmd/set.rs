@@ -51,8 +51,12 @@ impl Set {
         Ok(Set::new(key, value, expire))
     }
 
-    pub async fn apply(self, conn: &mut Connection, db: &mut Db) -> Result<()> {
-        db.set(self.key, self.value, self.expire);
+    pub async fn apply(&self, conn: &mut Connection, db: &mut Db) -> Result<()> {
+        db.set(
+            self.key.clone(),
+            self.value.clone(),
+            self.expire,
+        );
 
         let frame = Frame::Simple("OK".to_string());
 

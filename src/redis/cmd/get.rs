@@ -30,7 +30,7 @@ impl Get {
         }
     }
 
-    pub async fn apply(self, conn: &mut Connection, db: &mut Db) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection, db: &mut Db) -> Result<()> {
         let frame = match db.get(&self.key) {
             Some(data) => Frame::Bulk(data),
             None => Frame::Null,

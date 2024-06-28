@@ -3,17 +3,20 @@ use std::io::Cursor;
 use bytes::{Buf, BytesMut};
 use tokio::{
     io::{
-        AsyncReadExt, 
-        AsyncWriteExt, 
+        AsyncReadExt,
+        AsyncWriteExt,
         BufWriter,
-    }, 
+    },
     net::TcpStream
 };
+
+pub(crate) use handler::Handler;
+
 use crate::redis::utils::{add_cr, int_as_bytes};
 
 use super::frame::{Frame, FrameError};
 
-
+pub(crate) mod handler;
 #[derive(Debug)]
 pub struct Connection {
     stream: BufWriter<TcpStream>,
