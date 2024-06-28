@@ -1,43 +1,46 @@
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, broadcast, oneshot};
 
 use crate::redis::cmd::Command;
 
 type Receiver = mpsc::Receiver<Message>;
 
-type PropagateSx = oneshot::Sender<Command>;
+type Propagator = broadcast::Sender<Command>;
+type ReplListener = broadcast::Receiver<Command>;
 
-type HandshakeMsg = oneshot::Sender<Command>;
-type WriteMsg = Command;
+type GiveMeReplListener = oneshot::Sender<ReplListener>;
 
 #[derive(Debug)]
 pub(crate) enum Message {
-    Handshake(HandshakeMsg),
-    Propagate(WriteMsg),
+    Handshake(GiveMeReplListener),
+    Propagate(Command),
 }
 
 pub(crate) struct ChannelManager {
     receiver: Receiver,
-    pool: Vec<PropagateSx>
+    propagator: Propagator,
 }
 
 impl ChannelManager {
     pub(crate) fn new(receiver: Receiver) -> ChannelManager {
-        ChannelManager { receiver, pool: vec![] }
+        let (tx, _) = broadcast::channel(16);
+        ChannelManager { receiver, propagator: tx }
     }
 
     pub(crate) async fn run(&mut self) {
         while let Some(msg) = self.receiver.recv().await {
            match msg {
-               Message::Handshake(msg) => self.handle_handshake(msg),
+               Message::Handshake(sender) => self.handle_handshake(sender),
                Message::Propagate(msg) => self.handle_propagate(msg).await,
            };
        }
     }
-    async fn handle_propagate(&self, cmd: Command) {
-        self.pool.iter().map(|sx| sx.send(cmd));
+    async fn handle_propagate(&mut self, cmd: Command) {
+        // propagate write command to all subscribers 
+        self.propagator.send(cmd).unwrap();
     }
 
-    fn handle_handshake(&mut self, msg: HandshakeMsg) {
-        self.pool.push(msg);
+    fn handle_handshake(&mut self, sender: GiveMeReplListener) {
+        // on handshake -> respond with replication listener
+        sender.send(self.propagator.subscribe()).unwrap();
     }
 }

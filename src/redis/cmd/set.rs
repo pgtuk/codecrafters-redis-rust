@@ -15,7 +15,7 @@ use crate::redis::cmd::ClientCmd;
 use crate::redis::connection::Connection;
 use crate::redis::utils::{int_as_bytes, Named};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Set {
     key: String,
     value: Bytes,

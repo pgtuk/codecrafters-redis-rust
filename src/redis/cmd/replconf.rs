@@ -11,7 +11,7 @@ use crate::redis::connection::Connection;
 
 use super::ClientCmd;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Replconf {
     pub param: ReplconfParam,
     pub arg: String,
@@ -54,7 +54,7 @@ impl ClientCmd for Replconf {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ReplconfParam {
     ListeningPort,
     Capa,

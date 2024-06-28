@@ -24,7 +24,7 @@ mod set;
 pub mod replconf;
 mod psync;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Command {
     Ping(Ping),
     Echo(Echo),

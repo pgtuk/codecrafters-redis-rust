@@ -20,7 +20,6 @@ mod frame;
 mod parser;
 mod slave;
 mod utils;
-mod replication;
 mod channels;
 
 type ReplConnectionPool = Arc<Mutex<Vec<&'static Connection>>>;
@@ -77,10 +76,10 @@ impl Server {
         // TODO: use connection pool
         self.on_startup().await?;
 
-        let (tx, rx) = mpsc::channel(32);
-
+        // provide a clone of sender to each connection handler to contact ChannelManager
+        let (sender, receiver) = mpsc::channel(32);
         // TODO: dedicate some time to naming!
-        let mut manager = ChannelManager::new(rx);
+        let mut manager = ChannelManager::new(receiver);
         tokio::spawn(async move {
             manager.run().await
         });
@@ -92,11 +91,11 @@ impl Server {
                 Connection::new(socket),
                 self.db.clone(),
                 self.info.clone(),
-                tx.clone(),
+                sender.clone(),
             );
 
             tokio::spawn(async move {
-                if let Err(e) = handler.handle_connection().await {
+                if let Err(e) = handler.run().await {
                     eprintln!("Error while handling connection: {}", e);
                 };
             });
@@ -125,7 +124,7 @@ impl Server {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Role {
     Master,
     Slave,

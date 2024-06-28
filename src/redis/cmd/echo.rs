@@ -9,7 +9,7 @@ use crate::redis::{
 
 use super::{Frame, Parser};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Echo {
     msg: Bytes,
 }

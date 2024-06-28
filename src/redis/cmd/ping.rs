@@ -12,7 +12,7 @@ use crate::redis::connection::Connection;
 
 use super::ClientCmd;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Ping {
     msg: Option<String>,
 }

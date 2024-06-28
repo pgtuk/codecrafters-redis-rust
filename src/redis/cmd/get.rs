@@ -9,7 +9,7 @@ use crate::redis::cmd::ClientCmd;
 use crate::redis::connection::Connection;
 use crate::redis::utils::Named;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Get {
     key: String,
 }
