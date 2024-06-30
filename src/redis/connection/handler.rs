@@ -32,15 +32,22 @@ impl Handler {
     }
 
     pub(crate) async fn run(&mut self) -> anyhow::Result<()> {
-        loop {
-            tokio::select! {
-                _ = sleep(100) => self.handle_connection().await?,
-                cmd = self.replication_cmd() => self.replicate(cmd?).await?,
+        // do something with this abomination
+        if self.is_master() {
+            loop {
+                self.handle_connection().await?
             }
-        }
+        } else {
+            loop {
+                tokio::select! {
+                    _ = sleep(100) => self.handle_connection().await?,
+                    cmd = self.replication_cmd() => self.replicate(cmd?).await?,
+                }
+            }
+        }   
     }
 
-     pub(crate) async fn handle_connection(&mut self) -> anyhow::Result<()> {
+    async fn handle_connection(&mut self) -> anyhow::Result<()> {
         // loop {
             let opt_frame =  self.connection.read_frame().await?;
 
@@ -97,6 +104,10 @@ impl Handler {
         } else {
             Ok(())
         }
+    }
+
+    fn is_master(&self) -> bool {
+        self.server_info.role == Role::Master
     }
 }
 

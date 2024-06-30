@@ -17,7 +17,7 @@ use super::{
 };
 
 mod echo;
-mod get;
+pub mod get;
 mod info;
 mod ping;
 mod set;

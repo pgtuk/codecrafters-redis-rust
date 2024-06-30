@@ -74,6 +74,8 @@ impl Server {
 
     pub async fn run(&mut self) -> Result<()> {
         // TODO: use connection pool
+
+        // we set up a connection to master in handshake and must use it     
         self.on_startup().await?;
 
         // provide a clone of sender to each connection handler to contact ChannelManager
