@@ -3,8 +3,7 @@ use bytes::Bytes;
 
 use crate::redis::{
     cmd::ClientCmd,
-    connection::Connection,
-    utils::Named
+    utils::Named,
 };
 
 use super::{Frame, Parser};
@@ -31,12 +30,8 @@ impl Echo {
         }
     }
 
-    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
-        let frame = Frame::Bulk(self.msg.clone());
-
-        conn.write_frame(&frame).await?;
-
-        Ok(())
+    pub fn apply(&self) -> Frame {
+        Frame::Bulk(self.msg.clone())
     }
 }
 

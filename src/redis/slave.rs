@@ -15,6 +15,7 @@ use super::utils::{Addr, Named};
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {
     let socket = TcpStream::connect(master_addr.to_string()).await?;
     let mut conn = Connection::new(socket);
+    conn.is_repl_conn = true;
 
     sequence_step(
         &Ping::new(None),

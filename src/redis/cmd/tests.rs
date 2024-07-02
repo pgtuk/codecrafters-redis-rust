@@ -8,14 +8,14 @@ use crate::redis::{
     Config,
     db::Db,
     Role,
-    tests::make_frame
+    tests::make_frame,
 };
 use crate::redis::cmd::ClientCmd;
 use crate::Server;
 
 use super::*;
 
-fn config () -> Config {
+fn config() -> Config {
     Config::default()
 }
 
@@ -29,7 +29,7 @@ async fn start_server() -> SocketAddr {
     let mut server = Server::new(
         listener,
         Db::new(),
-        ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.replicaof.clone())
+        ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.replicaof.clone()),
     );
     tokio::spawn(async move { server.run().await });
 
@@ -46,7 +46,7 @@ async fn prepare_conn(addr: SocketAddr) -> Connection {
 fn test_cmd_from_frame_ping_no_msg() {
     let frame = make_frame(b"*1\r\n$4\r\nPING\r\n");
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
 
     let expected = Command::Ping(
         Ping::new(None)
@@ -62,7 +62,7 @@ fn test_cmd_from_frame_ping_no_msg() {
 fn test_cmd_from_frame_ping_with_msg() {
     let frame = make_frame(b"*2\r\n$4\r\nPING\r\n$5\r\nhello\r\n");
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
 
     let expected = Command::Ping(
         Ping::new(Some(String::from("hello")))
@@ -113,7 +113,7 @@ fn test_cmd_from_frame_echo() {
     let input = b"*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n";
     let frame = make_frame(input);
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
 
     let expected = Command::Echo(
         Echo::new(Bytes::from_static(b"hey"))
@@ -148,7 +148,7 @@ fn test_cmd_from_frame_set() {
     let input = b"*3\r\n$3\r\nSET\r\n$3\r\nhey\r\n$3\r\nyou\r\n";
     let frame = make_frame(input);
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
 
     let expected = Command::Set(
         Set::new(
@@ -169,7 +169,7 @@ fn test_cmd_from_frame_get() {
     let input = b"*2\r\n$3\r\nGET\r\n$3\r\nhey\r\n";
     let frame = make_frame(input);
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
 
     let expected = Command::Get(
         Get::new("hey".to_string())
@@ -222,12 +222,11 @@ async fn test_cmd_set_with_ttl() {
     let input = b"*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n$2\r\npx\r\n$3\r\n100\r\n";
     let frame = make_frame(input);
 
-    let cmd = Command::from_frame(frame).unwrap();
+    let cmd = Command::from_frame(&frame).unwrap();
     if let Command::Set(set) = cmd {
         conn.write_frame(&set.to_frame()).await.unwrap();
     };
 
-    // clean buffer from response to SET command
     conn.read_frame().await.unwrap().unwrap();
 
     let get = Get::new("grape".to_string());
@@ -250,7 +249,7 @@ async fn test_cmd_set_with_ttl() {
 
 
 #[tokio::test]
-async fn test_cmd_info () {
+async fn test_cmd_info() {
     let addr = start_server().await;
     let mut conn = prepare_conn(addr).await;
 

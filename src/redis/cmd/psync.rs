@@ -1,16 +1,14 @@
 use anyhow::Result;
-use base64::prelude::*;
 
 use crate::redis::{
     frame::Frame,
     parser::Parser,
     ServerInfo, utils::Named,
 };
-use crate::redis::connection::Connection;
 
 use super::ClientCmd;
 
-const EMPTY_RDB: &str = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Psync {
@@ -28,17 +26,8 @@ impl Psync {
         Ok(Psync { replication_id: "replication_id".to_string(), offset: 1 })
     }
 
-    pub async fn apply(&self, conn: &mut Connection, info: &ServerInfo) -> Result<()> {
-        let frame = Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.repl_id));
-
-        conn.write_frame(&frame).await?;
-        conn.write_rdb(&Psync::build_rdb_frame()).await?;
-
-        Ok(())
-    }
-
-    fn build_rdb_frame() -> Vec<u8> {
-        BASE64_STANDARD.decode(EMPTY_RDB).unwrap()
+    pub fn apply(&self, info: &ServerInfo) -> Frame {
+        Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.repl_id))
     }
 }
 

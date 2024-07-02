@@ -12,7 +12,6 @@ use crate::redis::{
     },
 };
 use crate::redis::cmd::ClientCmd;
-use crate::redis::connection::Connection;
 use crate::redis::utils::{int_as_bytes, Named};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -28,7 +27,7 @@ impl Named for Set {
 }
 
 impl Set {
-    pub fn new (key: String, value: Bytes, expire: Option<Duration>) -> Set {
+    pub fn new(key: String, value: Bytes, expire: Option<Duration>) -> Set {
         Set { key, value, expire }
     }
 
@@ -42,27 +41,23 @@ impl Set {
             Ok(s) if s.to_lowercase() == "px" => {
                 let millis = parser.next_int()?;
                 expire = Some(Duration::from_millis(millis))
-            },
+            }
             Ok(_) => {}
-            Err(ParserError::EndOfStream) => {},
+            Err(ParserError::EndOfStream) => {}
             Err(e) => return Err(e.into())
         }
 
         Ok(Set::new(key, value, expire))
     }
 
-    pub async fn apply(&self, conn: &mut Connection, db: &mut Db) -> Result<()> {
+    pub fn apply(&self, db: &mut Db) -> Frame {
         db.set(
             self.key.clone(),
             self.value.clone(),
             self.expire,
         );
 
-        let frame = Frame::Simple("OK".to_string());
-
-        conn.write_frame(&frame).await?;
-
-        Ok(())
+        Frame::Simple("OK".to_string())
     }
 }
 
@@ -75,10 +70,10 @@ impl ClientCmd for Set {
         frame.add(Frame::Bulk(self.value.clone()));
 
         if let Some(duration) = self.expire {
-             frame.add(Frame::Bulk("PX".into()));
-             frame.add(Frame::Bulk(
+            frame.add(Frame::Bulk("PX".into()));
+            frame.add(Frame::Bulk(
                 Bytes::from(int_as_bytes(&(duration.as_millis() as usize)))
-             ));
+            ));
         }
 
         frame

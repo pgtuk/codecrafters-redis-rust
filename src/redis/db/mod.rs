@@ -1,9 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
+use base64::prelude::*;
+use base64::prelude::BASE64_STANDARD;
 use bytes::Bytes;
 use tokio::sync::Notify;
 use tokio::time::{Duration, Instant, sleep_until};
+
+const EMPTY_RDB: &str = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
 #[derive(Debug, Clone)]
 pub struct Db {
@@ -23,7 +27,7 @@ struct State {
 
     shutdown: bool,
     // track TTLs
-    expirations: BTreeSet<(Instant, String)>
+    expirations: BTreeSet<(Instant, String)>,
 }
 
 #[derive(Debug)]
@@ -36,7 +40,7 @@ struct Entry {
 impl Db {
     pub fn new() -> Db {
         let shared = Arc::new(Shared {
-            state: Mutex::new(State { 
+            state: Mutex::new(State {
                 entries: HashMap::new(),
                 shutdown: false,
                 expirations: BTreeSet::new(),
@@ -59,16 +63,16 @@ impl Db {
         let mut state = self.shared.state.lock().unwrap();
         let mut notify = false;
 
-        let expires_at =  expire.map(|duration| {
+        let expires_at = expire.map(|duration| {
             let expire = Instant::now() + duration;
             notify = state.expirations.first().map(|first_expire|
-                first_expire.0 > expire
+            first_expire.0 > expire
             ).unwrap_or(true);
 
             expire
         });
 
-        let old_entry = state.entries.insert(key.clone(), Entry { data, expires_at } );
+        let old_entry = state.entries.insert(key.clone(), Entry { data, expires_at });
 
         if let Some(old_val) = old_entry {
             if let Some(expire) = old_val.expires_at {
@@ -85,6 +89,10 @@ impl Db {
         if notify {
             self.shared.notify_expire.notify_one();
         }
+    }
+
+    pub fn build_rdb_frame(&self) -> Vec<u8> {
+        BASE64_STANDARD.decode(EMPTY_RDB).unwrap()
     }
 }
 
@@ -111,7 +119,7 @@ impl Shared {
 
         while let Some(&(expire, ref key)) = state.expirations.iter().next() {
             if expire > now {
-                return Some(expire)
+                return Some(expire);
             }
 
             state.entries.remove(key);

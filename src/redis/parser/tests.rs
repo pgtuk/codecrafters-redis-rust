@@ -14,10 +14,10 @@ fn test_create_parser() {
         simple_frame.clone(),
     ]);
     
-    let mut parser = Parser::new(frame).unwrap();
+    let mut parser = Parser::new(&frame).unwrap();
     
-    assert_eq!(parser.next().unwrap(), empty_frame);
-    assert_eq!(parser.next().unwrap(), simple_frame);
+    assert_eq!(*parser.next().unwrap(), empty_frame);
+    assert_eq!(*parser.next().unwrap(), simple_frame);
     assert_eq!(
         parser.next().unwrap_err(),
         ParserError::EndOfStream
@@ -28,7 +28,7 @@ fn test_create_parser() {
 fn test_create_parser_err() {
     let non_array_frame = Frame::Null;
 
-    let parse_result = Parser::new(non_array_frame.clone());
+    let parse_result = Parser::new(&non_array_frame);
 
     assert_eq!(
         parse_result.unwrap_err(),
@@ -43,10 +43,11 @@ fn test_parser_next_string_simple() {
     let string = String::from("Hello there");
     let frame = Frame::Simple(string.clone());
 
+    let frame_array = Frame::Array(vec![
+        frame
+    ]);
     let mut parser = Parser::new(
-        Frame::Array(vec![
-            frame.clone()
-        ])
+        &frame_array
     ).unwrap();
 
     assert_eq!(
@@ -62,12 +63,9 @@ fn test_parser_next_string_bulk() {
     let frame = Frame::Bulk(
         Bytes::from_static(bytes)
     );
+    let frame_array = Frame::Array(vec![frame]);
 
-    let mut parser = Parser::new(
-        Frame::Array(vec![
-            frame.clone()
-        ])
-    ).unwrap();
+    let mut parser = Parser::new(&frame_array).unwrap();
 
     assert_eq!(
         parser.next_string().unwrap(),

@@ -4,11 +4,14 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::broadcast::{self, Sender};
 use tokio::time::{self, Duration};
 
 pub use config::Config;
 use connection::{Connection, Handler};
 use db::Db;
+
+use crate::redis::frame::Frame;
 
 mod connection;
 mod cmd;
@@ -18,7 +21,6 @@ mod frame;
 mod parser;
 mod slave;
 mod utils;
-mod channels;
 
 
 pub struct Server {
@@ -51,37 +53,43 @@ impl Server {
         Ok(server)
     }
 
-    async fn on_startup(&mut self) -> Result<()> {
+    async fn on_startup(&mut self) -> Option<Connection> {
         match self.info.role {
-            Role::Slave => self.connect_to_master().await?,
-            Role::Master => ()
-        };
-
-        Ok(())
-    }
-
-    fn as_role(&self) {
-
-    }
-
-    pub async fn run(&mut self) -> Result<()> {
-        self.on_startup().await?;
-
-        loop {
-            let socket = self.accept().await?;
-            self.handle_connection(Connection::new(socket)).await;
+            Role::Slave => Some(self.connect_to_master().await.ok()?),
+            Role::Master => None
         }
     }
 
-    async fn handle_connection(&self, conn: Connection) {
+    pub async fn run(&mut self) -> Result<()> {
+        let (sender_tx, _rx) = broadcast::channel(32);
+        let sender = Arc::new(sender_tx);
+
+        let master_conn = self.on_startup().await;
+        if let Some(connection) = master_conn {
+            // deal replication connection
+            self.handle_connection(connection, sender.clone()).await;
+        }
+
+        loop {
+            let socket = self.accept().await?;
+            self.handle_connection(Connection::new(socket), sender.clone()).await;
+        }
+    }
+
+    async fn handle_connection(
+        &self,
+        conn: Connection,
+        sender: Arc<Sender<Frame>>,
+    ) {
         let mut handler = Handler::new(
             conn,
             self.db.clone(),
             self.info.clone(),
+            sender,
         );
 
         tokio::spawn(async move {
-            if let Err(e) = handler.run().await {
+            if let Err(e) = handler.handle_connection().await {
                 eprintln!("Error while handling connection: {}", e);
             };
         });
@@ -106,17 +114,13 @@ impl Server {
         }
     }
 
-    async fn connect_to_master(&self) -> Result<()>{
+    async fn connect_to_master(&self) -> Result<Connection> {
         match &self.info.replinfo.replicaof {
             None => bail!("No master address"),
             Some(master_addr) => {
-                let master_conn = slave::handshake(&self.info, master_addr).await?;
-
-                self.handle_connection(master_conn).await;
-            },
+                Ok(slave::handshake(&self.info, master_addr).await?)
+            }
         }
-
-        Ok(())
     }
 }
 
@@ -146,13 +150,17 @@ impl ServerInfo {
     fn new(addr: utils::Addr, role: Role, replicaof: Option<utils::Addr>) -> ServerInfo {
         ServerInfo {
             addr,
-            role, 
+            role,
             replinfo: Arc::new(Replinfo {
                 repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
                 repl_offset: Mutex::new(0),
                 replicaof,
             }),
         }
+    }
+
+    pub fn is_master(&self) -> bool {
+        self.role == Role::Master
     }
 }
 

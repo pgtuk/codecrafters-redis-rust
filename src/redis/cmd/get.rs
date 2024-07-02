@@ -6,13 +6,13 @@ use crate::redis::{
     parser::Parser,
 };
 use crate::redis::cmd::ClientCmd;
-use crate::redis::connection::Connection;
 use crate::redis::utils::Named;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Get {
     key: String,
 }
+
 
 impl Named for Get {
     const NAME: &'static str = "GET";
@@ -22,7 +22,7 @@ impl Get {
     pub fn new(key: String) -> Get {
         Get { key }
     }
- 
+
     pub fn parse_args(parser: &mut Parser) -> Result<Get> {
         match parser.next_string() {
             Ok(key) => Ok(Get::new(key)),
@@ -30,15 +30,11 @@ impl Get {
         }
     }
 
-    pub async fn apply(&self, conn: &mut Connection, db: &mut Db) -> Result<()> {
-        let frame = match db.get(&self.key) {
+    pub fn apply(&self, db: &mut Db) -> Frame {
+        match db.get(&self.key) {
             Some(data) => Frame::Bulk(data),
             None => Frame::Null,
-        };
-
-        conn.write_frame(&frame).await?;
-
-        Ok(())
+        }
     }
 }
 

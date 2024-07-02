@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
-use tokio::sync::broadcast;
+use tokio::sync::broadcast::Sender;
 
-use crate::redis::{cmd, Role, ServerInfo};
+use crate::redis::{cmd, ServerInfo};
 use crate::redis::cmd::Command;
+use crate::redis::connection::Connection;
 use crate::redis::db::Db;
 use crate::redis::frame::Frame;
 
-use super::Connection;
-
-//      mpsc::Sender<Message>
 pub struct Handler {
     connection: Connection,
     db: Db,
     server_info: ServerInfo,
-    sender: Arc<broadcast::Sender<Frame>>,
+    sender: Arc<Sender<Frame>>,
 }
 
 impl Handler {
@@ -22,8 +20,7 @@ impl Handler {
         connection: Connection,
         db: Db,
         server_info: ServerInfo,
-        sender: Arc<broadcast::Sender<Frame>>
-
+        sender: Arc<Sender<Frame>>,
     ) -> Handler {
         Handler {
             connection,
@@ -33,38 +30,48 @@ impl Handler {
         }
     }
 
-    fn is_master(&self) -> bool {
-        self.server_info.role == Role::Master
-    }
-
-    async fn handle_connection(&mut self) -> anyhow::Result<()> {
+    pub async fn handle_connection(&mut self) -> anyhow::Result<()> {
         loop {
-            let opt_frame =  self.connection.read_frame().await?;
-
+            let opt_frame = self.connection.read_frame().await?;
             let frame = match opt_frame {
-                Some(frame) => {frame},
+                Some(frame) => { frame }
                 // None means that the socket was closed by peer
                 None => return Ok(()),
             };
 
-            let cmd = cmd::Command::from_frame(&frame)?;
+            match self.run_as_cmd(&frame).await {
+                Ok(cmd) => {
+                    if self.server_info.is_master() {
+                        match cmd {
+                            // replicate write commands
+                            Command::Set(_) => { self.sender.send(frame)?; }
 
-            cmd.apply(
-                &mut self.connection,
-                &mut self.db,
-                &self.server_info
-            ).await?;
+                            // after psync cmd master starts listening for write commands to replicate
+                            Command::Psync(_) => {
+                                let mut receiver = self.sender.subscribe();
 
-            // if let Command::Set(set) = cmd {
-            //     self.sender.send(frame)?;
-            // }
-
-            match cmd {
-                Command::Set(_) => if self.is_master() {self.sender.send(frame)?;},
-                Command::Psync(_) => {},
-                _ => ()
+                                while let Ok(frame) = receiver.recv().await {
+                                    dbg!(&frame);
+                                    self.connection.write_frame(&frame).await?
+                                }
+                            }
+                            _ => (),
+                        }
+                    };
+                }
+                _ => continue
             }
-
         }
+    }
+
+    async fn run_as_cmd(&mut self, frame: &Frame) -> anyhow::Result<Command> {
+        let cmd = cmd::Command::from_frame(frame)?;
+        cmd.apply(
+            &mut self.connection,
+            &mut self.db,
+            &self.server_info,
+        ).await?;
+
+        Ok(cmd)
     }
 }

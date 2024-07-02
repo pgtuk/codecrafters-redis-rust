@@ -39,7 +39,7 @@ impl Command {
     pub fn from_frame(frame: &Frame) -> Result<Command> {
         // all redis commands come in form of RESP arrays
         let mut parser = Parser::new(frame)?;
-  
+
         let command_name = parser.next_string()?.to_lowercase();
 
         let command = match &command_name[..] {
@@ -58,26 +58,25 @@ impl Command {
 
     pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
         // returns result of calling the command on server side
-        match self {
-            Command::Ping(cmd) => {cmd.apply(conn).await?},
-            Command::Echo(cmd) => {cmd.apply(conn).await?},
-            Command::Set(cmd) => {cmd.apply(conn, db).await?},
-            Command::Get(cmd) => {cmd.apply(conn, db).await?},
-            Command::Info(cmd) => {cmd.apply(conn, info).await?},
-            Command::Replconf(cmd) => {cmd.apply(conn).await?},
-            Command::Psync(cmd) => {cmd.apply(conn, info).await?},
+        let response = match self {
+            Command::Ping(cmd) => { cmd.apply() }
+            Command::Echo(cmd) => { cmd.apply() }
+            Command::Set(cmd) => { cmd.apply(db) }
+            Command::Get(cmd) => { cmd.apply(db) }
+            Command::Info(cmd) => { cmd.apply(info) }
+            Command::Replconf(cmd) => { cmd.apply() }
+            Command::Psync(cmd) => { cmd.apply(info) }
             // _ => unimplemented!()
         };
 
+        if !conn.is_repl_conn {
+            conn.write_frame(&response).await?;
+            if let Command::Psync(_) = self {
+                conn.write_rdb(&db.build_rdb_frame()).await?
+            }
+        }
+
         Ok(())
-    }
-
-    pub fn is_write(&self) -> bool {
-        matches!(self, Command::Set(_))
-    }
-
-    pub fn is_handshake(&self) -> bool {
-        matches!(self, Command::Replconf(_))
     }
 }
 

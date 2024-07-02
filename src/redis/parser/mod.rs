@@ -4,7 +4,6 @@ use std::{
     num::ParseIntError,
     slice::Iter,
     str,
-    vec,
 };
 
 use bytes::Bytes;
@@ -13,8 +12,8 @@ use thiserror::Error;
 use super::frame::Frame;
 
 #[derive(Debug)]
-pub(crate) struct Parser {
-    frames: Iter<'_, Frame>,
+pub(crate) struct Parser<'a> {
+    frames: Iter<'a, Frame>,
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -24,7 +23,7 @@ pub enum ParserError {
     Other(String),
 }
 
-impl Parser {
+impl Parser<'_> {
     pub fn new(frame: &Frame) -> Result<Parser, ParserError> {
         let frame_array = match frame {
             Frame::Array(array) => array.iter(),
@@ -62,7 +61,7 @@ impl Parser {
 
     pub fn next_bytes(&mut self) -> Result<Bytes, ParserError> {
         match self.next()? {
-            Frame::Simple(val) => Ok(val.into()),
+            Frame::Simple(val) => Ok(val.to_owned().into()),
             Frame::Bulk(val) => Ok(val.to_owned()),
             frame => {
                 Err(
@@ -83,7 +82,7 @@ impl Parser {
                     String::from_utf8(
                         val.to_vec()
                     ).unwrap().parse()?
-                ) 
+                )
             }
             frame => {
                 Err(

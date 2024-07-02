@@ -7,7 +7,6 @@ use crate::redis::{
     parser::Parser,
     utils::Named,
 };
-use crate::redis::connection::Connection;
 
 use super::ClientCmd;
 
@@ -26,30 +25,25 @@ impl Replconf {
         Ok(Replconf { param: ReplconfParam::ListeningPort, arg: "args".to_string() })
     }
 
-    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
-        let frame = Frame::Simple("OK".to_string());
-
-        conn.write_frame(&frame).await?;
-
-        Ok(())
+    pub fn apply(&self) -> Frame {
+        Frame::Simple("OK".to_string())
     }
 }
 
 impl ClientCmd for Replconf {
-
     fn to_frame(&self) -> Frame {
         let mut frame = Frame::array();
 
         let items: Vec<String> = vec![
-            Replconf::NAME.to_string(), 
-            self.param.to_string(), 
-            self.arg.clone()
+            Replconf::NAME.to_string(),
+            self.param.to_string(),
+            self.arg.clone(),
         ];
 
         for item in items {
             frame.add(Frame::Bulk(item.into()))
         }
-   
+
         frame
     }
 }

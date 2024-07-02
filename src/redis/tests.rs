@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use bytes::Bytes;
 use tokio::net::TcpStream;
-use tokio::time::{self, Duration};
+use tokio::time::{self, Duration, sleep};
 
 use super::cmd::ClientCmd;
 use super::cmd::get::Get;
@@ -18,16 +18,16 @@ pub fn make_frame(input: &[u8]) -> Frame {
     Frame::parse(&mut cursor).unwrap()
 }
 
-fn config (host: &str, port: &str, replicaof: Option<&Addr>) -> Config {
+fn config(host: &str, port: &str, replicaof: Option<&Addr>) -> Config {
     Config {
-        addr: Addr { 
+        addr: Addr {
             host: host.to_string(),
-            port: port.to_string(),        
+            port: port.to_string(),
         },
         replicaof: match replicaof {
             Some(addr) => Some(addr.clone()),
             None => None
-        }
+        },
     }
 }
 
@@ -37,7 +37,6 @@ async fn setup_server(cfg: &Config) -> Server {
 
 #[tokio::test]
 async fn test_master_slave_handshake() {
-
     let master_cfg = config("127.0.0.1", "6379", None);
     let slave_cfg = config("127.0.0.1", "6380", Some(&master_cfg.addr));
 
@@ -50,7 +49,7 @@ async fn test_master_slave_handshake() {
     time::sleep(Duration::from_millis(100)).await;
 
     st.abort();
-    mt.abort();  
+    mt.abort();
 }
 
 #[tokio::test]
@@ -64,30 +63,33 @@ async fn test_replication() {
     let _mt = tokio::spawn(async move { master.run().await.unwrap() });
     let _st = tokio::spawn(async move { slave.run().await.unwrap() });
 
+    sleep(Duration::from_millis(100)).await;
+
     let master_socket = TcpStream::connect(master_cfg.addr.to_string()).await.unwrap();
-
     let mut master_conn = Connection::new(master_socket);
-
+    let get = Get::new("grape".to_string());
     let input = b"*3\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n";
     let frame = make_frame(input);
 
     master_conn.write_frame(&frame).await.unwrap();
 
-    let slave_socket =  TcpStream::connect(slave_cfg.addr.to_string()).await.unwrap();
-    let mut slave_conn =  Connection::new(slave_socket);
+    master_conn.read_frame().await.unwrap();
 
-    let get = Get::new("grape".to_string());
+    master_conn.write_frame(&get.to_frame()).await.unwrap();
+
+    sleep(Duration::from_millis(100)).await;
+
+    let slave_socket = TcpStream::connect(slave_cfg.addr.to_string()).await.unwrap();
+    let mut slave_conn = Connection::new(slave_socket);
+
+
     slave_conn.write_frame(&get.to_frame()).await.unwrap();
 
     let response = slave_conn.read_frame().await.unwrap().unwrap();
     let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));
-    
+
     assert_eq!(
         response,
         expected,
     )
-
-
-
-    // dbg!(get_result);
 }

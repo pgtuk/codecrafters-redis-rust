@@ -7,7 +7,7 @@ use tokio::{
         AsyncWriteExt,
         BufWriter,
     },
-    net::TcpStream
+    net::TcpStream,
 };
 
 pub(crate) use handler::Handler;
@@ -21,14 +21,15 @@ pub(crate) mod handler;
 pub struct Connection {
     stream: BufWriter<TcpStream>,
     buffer: BytesMut,
+    pub(crate) is_repl_conn: bool,
 }
 
 impl Connection {
-
     pub fn new(stream: TcpStream) -> Connection {
         Connection {
             stream: BufWriter::new(stream),
             buffer: BytesMut::with_capacity(4096),
+            is_repl_conn: false,
         }
     }
 
@@ -40,9 +41,9 @@ impl Connection {
 
             if 0 == self.stream.read_buf(&mut self.buffer).await? {
                 if self.buffer.is_empty() {
-                    return Ok(None)
+                    return Ok(None);
                 } else {
-                    return Err("connection reset by peer".into())
+                    return Err("connection reset by peer".into());
                 }
             }
         }
@@ -51,11 +52,11 @@ impl Connection {
     pub async fn write_frame(&mut self, frame: &Frame) -> Result<(), FrameError> {
         self.stream.write_all(&frame.to_response()).await?;
         self.stream.flush().await?;
-        
+
         Ok(())
     }
 
-    pub async fn write_rdb(&mut self, rdb: &Vec<u8>) -> Result<(), FrameError>{
+    pub async fn write_rdb(&mut self, rdb: &Vec<u8>) -> Result<(), FrameError> {
         let mut buff: Vec<u8> = Vec::new();
         buff.push(b'$');
         buff.extend(int_as_bytes(&rdb.len()));
@@ -82,7 +83,7 @@ impl Connection {
                 self.buffer.advance(len);
 
                 Ok(Some(frame))
-            },
+            }
             Err(FrameError::Incomplete) => Ok(None),
             Err(e) => Err(e)
         }

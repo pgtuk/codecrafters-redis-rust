@@ -8,7 +8,6 @@ use crate::redis::{
     },
     utils::Named,
 };
-use crate::redis::connection::Connection;
 
 use super::ClientCmd;
 
@@ -34,15 +33,11 @@ impl Ping {
         }
     }
 
-    pub async fn apply(&self, conn: &mut Connection) -> Result<()> {
-        let frame = match &self.msg {
+    pub fn apply(&self) -> Frame {
+        match &self.msg {
             None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg.clone().into()),
-        };
-
-        conn.write_frame(&frame).await?;
-
-        Ok(())
+        }
     }
 }
 
