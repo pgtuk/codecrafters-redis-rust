@@ -12,7 +12,7 @@ use super::cmd::{
 use super::connection::Connection;
 use super::utils::{Addr, Named};
 
-pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<(), > {
+pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {
     let socket = TcpStream::connect(master_addr.to_string()).await?;
     let mut conn = Connection::new(socket);
 
@@ -36,7 +36,7 @@ pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<()
         &mut conn, 
     ).await?;
 
-    Ok(())
+    Ok(conn)
 }
 
 async fn sequence_step(cmd: &(impl ClientCmd + Named), conn: &mut Connection) -> Result<()>{

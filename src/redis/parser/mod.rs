@@ -1,18 +1,20 @@
 use std::{
     fmt,
-    str, 
+    iter::Iterator,
+    num::ParseIntError,
+    slice::Iter,
+    str,
     vec,
-    num::ParseIntError, 
 };
+
 use bytes::Bytes;
 use thiserror::Error;
 
 use super::frame::Frame;
 
-
 #[derive(Debug)]
 pub(crate) struct Parser {
-    frames: vec::IntoIter<Frame>,
+    frames: Iter<'_, Frame>,
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -23,9 +25,9 @@ pub enum ParserError {
 }
 
 impl Parser {
-    pub fn new(frame: Frame) -> Result<Parser, ParserError> {
+    pub fn new(frame: &Frame) -> Result<Parser, ParserError> {
         let frame_array = match frame {
-            Frame::Array(array) => array.into_iter(),
+            Frame::Array(array) => array.iter(),
             _ => return Err(
                 ParserError::Other(
                     format!("protocol error; expected array, got {:?}", frame)
@@ -34,17 +36,17 @@ impl Parser {
         };
 
         Ok(
-            Parser { frames: frame_array.into_iter() }
+            Parser { frames: frame_array }
         )
     }
 
-    fn next(&mut self) -> Result<Frame, ParserError> {
+    fn next(&mut self) -> Result<&Frame, ParserError> {
         self.frames.next().ok_or(ParserError::EndOfStream)
     }
 
     pub fn next_string(&mut self) -> Result<String, ParserError> {
         match self.next()? {
-            Frame::Simple(val) => Ok(val),
+            Frame::Simple(val) => Ok(val.to_owned()),
             Frame::Bulk(val) => str::from_utf8(&val[..])
                 .map(|s| s.to_string())
                 .map_err(|_| ParserError::Other("protocol error; invalid string".to_string())),
@@ -61,7 +63,7 @@ impl Parser {
     pub fn next_bytes(&mut self) -> Result<Bytes, ParserError> {
         match self.next()? {
             Frame::Simple(val) => Ok(val.into()),
-            Frame::Bulk(val) => Ok(val),
+            Frame::Bulk(val) => Ok(val.to_owned()),
             frame => {
                 Err(
                     ParserError::Other(
@@ -74,7 +76,7 @@ impl Parser {
 
     pub fn next_int(&mut self) -> Result<u64, ParserError> {
         match self.next()? {
-            Frame::Integer(val) => Ok(val),
+            Frame::Integer(val) => Ok(val.to_owned()),
             Frame::Simple(val) => Ok(val.parse::<u64>()?),
             Frame::Bulk(val) => {
                 Ok(

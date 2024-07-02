@@ -1,16 +1,16 @@
 use std::io::Cursor;
 
+use bytes::Bytes;
 use tokio::net::TcpStream;
 use tokio::time::{self, Duration};
 
-use super::Connection;
+use super::cmd::ClientCmd;
+use super::cmd::get::Get;
 use super::config::Config;
+use super::Connection;
 use super::frame::Frame;
 use super::Server;
 use super::utils::Addr;
-use super::cmd::get::Get;
-use super::cmd::ClientCmd;
-
 
 pub fn make_frame(input: &[u8]) -> Frame {
     let mut cursor = Cursor::new(&input[..]);
@@ -79,16 +79,15 @@ async fn test_replication() {
     let get = Get::new("grape".to_string());
     slave_conn.write_frame(&get.to_frame()).await.unwrap();
 
-    match slave_conn.read_frame().await {
-        Ok(result) => {
-            dbg!(result);
-            Ok(())
-        }
-        Err(e) => {
-            dbg!(e);
-            Ok(())
-        }
-    }
+    let response = slave_conn.read_frame().await.unwrap().unwrap();
+    let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));
+    
+    assert_eq!(
+        response,
+        expected,
+    )
+
+
 
     // dbg!(get_result);
 }

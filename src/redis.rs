@@ -4,10 +4,8 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
 use tokio::time::{self, Duration};
 
-use channels::ChannelManager;
 pub use config::Config;
 use connection::{Connection, Handler};
 use db::Db;
@@ -22,14 +20,11 @@ mod slave;
 mod utils;
 mod channels;
 
-type ReplConnectionPool = Arc<Mutex<Vec<&'static Connection>>>;
 
 pub struct Server {
     listener: TcpListener,
     db: Db,
     info: ServerInfo,
-
-    repl_connection_pool: Option<ReplConnectionPool>
 }
 
 impl Server {
@@ -38,7 +33,6 @@ impl Server {
             listener,
             db,
             info,
-            repl_connection_pool: None
         }
     }
 
@@ -59,51 +53,38 @@ impl Server {
 
     async fn on_startup(&mut self) -> Result<()> {
         match self.info.role {
-            Role::Slave => {
-                match &self.info.replinfo.replicaof {
-                    Some(master_addr) => Ok(slave::handshake(&self.info, master_addr).await?),
-                    None => bail!("No master address"),
-                }
-            },
-            Role::Master => {
-                self.repl_connection_pool = Some(Arc::new(Mutex::new(vec![])));
-                Ok(())
-            }
-        }
+            Role::Slave => self.connect_to_master().await?,
+            Role::Master => ()
+        };
+
+        Ok(())
+    }
+
+    fn as_role(&self) {
+
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        // TODO: use connection pool
-
-        // we set up a connection to master in handshake and must use it     
         self.on_startup().await?;
-
-        // provide a clone of sender to each connection handler to contact ChannelManager
-        let (sender, receiver) = mpsc::channel(32);
-        // TODO: dedicate some time to naming!
-        let mut manager = ChannelManager::new(receiver);
-        tokio::spawn(async move {
-            manager.run().await
-        });
 
         loop {
             let socket = self.accept().await?;
-            
-            let mut handler = Handler::new(
-                Connection::new(socket),
-                self.db.clone(),
-                self.info.clone(),
-                sender.clone(),
-            );
-
-            tokio::spawn(async move {
-                if let Err(e) = handler.run().await {
-                    eprintln!("Error while handling connection: {}", e);
-                };
-            });
+            self.handle_connection(Connection::new(socket)).await;
         }
+    }
 
-        // drop(tx)
+    async fn handle_connection(&self, conn: Connection) {
+        let mut handler = Handler::new(
+            conn,
+            self.db.clone(),
+            self.info.clone(),
+        );
+
+        tokio::spawn(async move {
+            if let Err(e) = handler.run().await {
+                eprintln!("Error while handling connection: {}", e);
+            };
+        });
     }
 
     async fn accept(&mut self) -> Result<TcpStream> {
@@ -123,6 +104,19 @@ impl Server {
 
             tries *= 2;
         }
+    }
+
+    async fn connect_to_master(&self) -> Result<()>{
+        match &self.info.replinfo.replicaof {
+            None => bail!("No master address"),
+            Some(master_addr) => {
+                let master_conn = slave::handshake(&self.info, master_addr).await?;
+
+                self.handle_connection(master_conn).await;
+            },
+        }
+
+        Ok(())
     }
 }
 

@@ -1,18 +1,20 @@
-use tokio::sync::{mpsc, oneshot, broadcast};
+use std::sync::Arc;
+
+use tokio::sync::broadcast;
 
 use crate::redis::{cmd, Role, ServerInfo};
-use crate::redis::channels::Message;
+use crate::redis::cmd::Command;
 use crate::redis::db::Db;
+use crate::redis::frame::Frame;
 
 use super::Connection;
-use tokio::time::{self, Duration};
 
+//      mpsc::Sender<Message>
 pub struct Handler {
     connection: Connection,
     db: Db,
     server_info: ServerInfo,
-    sender: mpsc::Sender<Message>,
-    repl_listener: Option<broadcast::Receiver<cmd::Command>>
+    sender: Arc<broadcast::Sender<Frame>>,
 }
 
 impl Handler {
@@ -20,35 +22,23 @@ impl Handler {
         connection: Connection,
         db: Db,
         server_info: ServerInfo,
-        sender: mpsc::Sender<Message>
+        sender: Arc<broadcast::Sender<Frame>>
+
     ) -> Handler {
         Handler {
             connection,
             db,
             server_info,
             sender,
-            repl_listener: None
         }
     }
 
-    pub(crate) async fn run(&mut self) -> anyhow::Result<()> {
-        // do something with this abomination
-        if self.is_master() {
-            loop {
-                self.handle_connection().await?
-            }
-        } else {
-            loop {
-                tokio::select! {
-                    _ = sleep(100) => self.handle_connection().await?,
-                    cmd = self.replication_cmd() => self.replicate(cmd?).await?,
-                }
-            }
-        }   
+    fn is_master(&self) -> bool {
+        self.server_info.role == Role::Master
     }
 
     async fn handle_connection(&mut self) -> anyhow::Result<()> {
-        // loop {
+        loop {
             let opt_frame =  self.connection.read_frame().await?;
 
             let frame = match opt_frame {
@@ -57,7 +47,7 @@ impl Handler {
                 None => return Ok(()),
             };
 
-            let cmd = cmd::Command::from_frame(frame)?;
+            let cmd = cmd::Command::from_frame(&frame)?;
 
             cmd.apply(
                 &mut self.connection,
@@ -65,52 +55,16 @@ impl Handler {
                 &self.server_info
             ).await?;
 
-            if self.server_info.role == Role::Master && cmd.is_write() {
-                self.sender.send(Message::Propagate(cmd))
-                .await
-                .expect("Looks like channel manager is gone");
-            } else if self.server_info.role == Role::Slave && cmd.is_handshake() && self.repl_listener.is_none() {
-                let (sx, rx) = oneshot::channel();
-                self.sender.send(Message::Handshake(sx))
-                .await
-                .expect("Looks like channel manager is gone");
-   
-                self.repl_listener = Some(rx.await?);
-            };
+            // if let Command::Set(set) = cmd {
+            //     self.sender.send(frame)?;
+            // }
 
-            Ok(())
-        // }
-    }
+            match cmd {
+                Command::Set(_) => if self.is_master() {self.sender.send(frame)?;},
+                Command::Psync(_) => {},
+                _ => ()
+            }
 
-    async fn replication_cmd(&mut self) -> anyhow::Result<Option<cmd::Command>> {
-        match &mut self.repl_listener {
-            Some(listener) => {
-                Ok(Some(listener.recv().await?))
-            },
-            None => { 
-                sleep(100).await;
-                Ok(None)
-            },
         }
     }
-
-    async fn replicate(&mut self, cmd: Option<cmd::Command>) -> anyhow::Result<()> {
-        if let Some(cmd) = cmd {
-            cmd.apply(
-                &mut self.connection, 
-                &mut self.db, 
-                &self.server_info,
-            ).await
-        } else {
-            Ok(())
-        }
-    }
-
-    fn is_master(&self) -> bool {
-        self.server_info.role == Role::Master
-    }
-}
-
-async fn sleep(milis: u64) {
-    time::sleep(Duration::from_millis(milis)).await;
 }

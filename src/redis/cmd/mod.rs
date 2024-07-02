@@ -36,7 +36,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn from_frame(frame: Frame) -> Result<Command> {
+    pub fn from_frame(frame: &Frame) -> Result<Command> {
         // all redis commands come in form of RESP arrays
         let mut parser = Parser::new(frame)?;
   

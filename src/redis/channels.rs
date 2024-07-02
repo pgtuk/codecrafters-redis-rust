@@ -1,4 +1,4 @@
-use tokio::sync::{mpsc, broadcast, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::redis::cmd::Command;
 
@@ -35,7 +35,8 @@ impl ChannelManager {
        }
     }
     async fn handle_propagate(&mut self, cmd: Command) {
-        // propagate write command to all subscribers 
+        // propagate write command to all subscribers
+        dbg!(&cmd);
         self.propagator.send(cmd).unwrap();
     }
 
