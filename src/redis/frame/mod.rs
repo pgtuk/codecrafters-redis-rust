@@ -67,6 +67,25 @@ impl Frame {
       
         Ok(())
     }
+    pub fn parse_rdb(src: &mut Cursor<&[u8]>) -> Result<Bytes, FrameError> {
+        match get_u8(src)? {
+            b'$' => {
+                let content_len = get_int(src)?;
+                let start = src.position() as usize;
+                if src.get_ref().len() - 1 < start + content_len {
+                    return Err(FrameError::Other("Corrupted RDB".into()))
+                }
+                src.set_position((start + content_len) as u64);
+
+                let resp = Ok(src.get_ref()[start..start + content_len].to_vec().into());
+
+                resp
+            },
+            _ => {
+                Err(FrameError::Other("Wrong RDB file format".into()))
+            }
+        }
+    }
 
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, FrameError> {
         match get_u8(src)? {

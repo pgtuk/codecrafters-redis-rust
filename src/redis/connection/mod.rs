@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BytesMut, Bytes};
 use tokio::{
     io::{
         AsyncReadExt,
@@ -67,6 +67,33 @@ impl Connection {
         self.stream.flush().await?;
 
         Ok(())
+    }
+
+    pub async fn read_rdb(&mut self) -> Result<Option<Bytes>, FrameError> {
+        loop {
+            if let Ok(arr) = self.parse_rdb() {
+                return Ok(Some(arr));
+            };
+
+            if 0 == self.stream.read_buf(&mut self.buffer).await? {
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Err("connection reset by peer".into());
+                }
+            }
+        }
+    }
+
+    fn parse_rdb(&mut self) -> Result<Bytes, FrameError> {
+        let mut buf = Cursor::new(&self.buffer[..]);
+
+        let rdb = Frame::parse_rdb(&mut buf)?;
+        let len = buf.position() as usize;
+
+        self.buffer.advance(len);
+
+        Ok(rdb)
     }
 
     fn parse_frame(&mut self) -> Result<Option<Frame>, FrameError> {

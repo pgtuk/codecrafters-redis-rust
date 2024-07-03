@@ -38,6 +38,7 @@ impl Handler {
                 // None means that the socket was closed by peer
                 None => return Ok(()),
             };
+            // dbg!(&frame);
 
             match self.run_as_cmd(&frame).await {
                 Ok(cmd) => {
@@ -51,7 +52,6 @@ impl Handler {
                                 let mut receiver = self.sender.subscribe();
 
                                 while let Ok(frame) = receiver.recv().await {
-                                    dbg!(&frame);
                                     self.connection.write_frame(&frame).await?
                                 }
                             }

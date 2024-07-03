@@ -37,6 +37,8 @@ pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Co
         &mut conn, 
     ).await?;
 
+    let _ = conn.read_rdb().await;
+
     Ok(conn)
 }
 
