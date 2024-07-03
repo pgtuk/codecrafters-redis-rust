@@ -1,15 +1,15 @@
-use bytes::{Buf, Bytes};
-use thiserror::Error;
 use std::{
     self,
-    fmt, 
+    fmt,
     io::Cursor,
     num::{ParseIntError, TryFromIntError},
     string::FromUtf8Error, vec,
 };
 
-use crate::redis::utils::{add_cr, int_as_bytes};
+use bytes::{Buf, Bytes};
+use thiserror::Error;
 
+use crate::redis::utils::{add_cr, int_as_bytes};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
@@ -32,11 +32,10 @@ impl Frame {
             // simple
             b'+' => {
                 get_line(src)?;
-            },
+            }
             // bulk
             b'$' => {
                 if peek(src)? == b'-' {
-                    
                     skip(src, 4)?
                 } else {
                     let len = get_int(src)?;
@@ -44,18 +43,18 @@ impl Frame {
                     // check for valid string of len `len` + \r\n
                     skip(src, len + 2)?
                 }
-            },
+            }
             //integer
             b':' => {
                 get_int(src)?;
-            },
+            }
             // array
             b'*' => {
                 let len = get_int(src)?;
                 for _ in 0..len {
                     Frame::check(src)?;
                 }
-            },
+            }
             unknown => {
                 return Err(
                     FrameError::Other(
@@ -64,7 +63,7 @@ impl Frame {
                 );
             }
         }
-      
+
         Ok(())
     }
     pub fn parse_rdb(src: &mut Cursor<&[u8]>) -> Result<Bytes, FrameError> {
@@ -73,14 +72,14 @@ impl Frame {
                 let content_len = get_int(src)?;
                 let start = src.position() as usize;
                 if src.get_ref().len() - 1 < start + content_len {
-                    return Err(FrameError::Other("Corrupted RDB".into()))
+                    return Err(FrameError::Other("Corrupted RDB".into()));
                 }
                 src.set_position((start + content_len) as u64);
 
                 let resp = Ok(src.get_ref()[start..start + content_len].to_vec().into());
 
                 resp
-            },
+            }
             _ => {
                 Err(FrameError::Other("Wrong RDB file format".into()))
             }
@@ -94,9 +93,9 @@ impl Frame {
                 let line = get_line(src)?.to_vec();
 
                 let string = String::from_utf8(line)?;
-                
+
                 Ok(Frame::Simple(string))
-            },
+            }
             // bulk
             b'$' => {
                 if peek(src)? == b'-' {
@@ -115,18 +114,18 @@ impl Frame {
                     if src.remaining() < len + 2 {
                         return Err(FrameError::Incomplete);
                     }
-                    
+
                     let line = get_line(src)?.to_vec();
 
                     Ok(Frame::Bulk(line.into()))
                 }
-            },
+            }
             // integer
             b':' => {
                 let int = get_int(src)?;
 
                 Ok(Frame::Integer(int.try_into()?))
-            },
+            }
             // array
             b'*' => {
                 let len = get_int(src)?;
@@ -138,7 +137,7 @@ impl Frame {
                 }
 
                 Ok(Frame::Array(result))
-            },
+            }
             // unknown
             any => {
                 eprintln!("Unknown frame type: {}", String::from_utf8(vec![any]).unwrap());
@@ -153,13 +152,13 @@ impl Frame {
                 format!("+{}\r\n", val)
                     .as_bytes()
                     .to_vec()
-            },
+            }
             Frame::Null => {
                 b"$-1\r\n".to_vec()
-            },
+            }
             Frame::Integer(val) => {
                 format!(":{}\r\n", val).as_bytes().to_vec()
-            },
+            }
             Frame::Bulk(val) => {
                 let mut buff: Vec<u8> = Vec::new();
 
@@ -171,7 +170,7 @@ impl Frame {
                 add_cr(&mut buff);
 
                 buff
-            },
+            }
             Frame::Array(arr) => {
                 let mut buff: Vec<u8> = Vec::new();
                 buff.push(b'*');
@@ -211,7 +210,7 @@ fn peek(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
 
 fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), FrameError> {
     if src.remaining() < n {
-        return Err(FrameError::Incomplete)
+        return Err(FrameError::Incomplete);
     }
 
     src.advance(n);
@@ -220,24 +219,24 @@ fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), FrameError> {
 
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, FrameError> {
     if !src.has_remaining() {
-        return Err(FrameError::Incomplete)
+        return Err(FrameError::Incomplete);
     }
-    
+
     Ok(src.get_u8())
 }
 
 fn get_int(src: &mut Cursor<&[u8]>) -> Result<usize, FrameError> {
     if !src.has_remaining() {
-        return Err(FrameError::Incomplete)
+        return Err(FrameError::Incomplete);
     }
 
     String::from_utf8(
         get_line(src)?.to_vec()
     )?
-    .parse()
-    .map_err(|_| {
-        FrameError::Other("Can't parse integer".to_string())
-    })
+        .parse()
+        .map_err(|_| {
+            FrameError::Other("Can't parse integer".to_string())
+        })
 }
 
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
@@ -248,7 +247,7 @@ fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
         if src.get_ref()[i] == b'\r' && src.get_ref()[i + 1] == b'\n' {
             src.set_position((i + 2) as u64);
 
-            return Ok(&src.get_ref()[start..i])
+            return Ok(&src.get_ref()[start..i]);
         }
     }
     Err(FrameError::Incomplete)

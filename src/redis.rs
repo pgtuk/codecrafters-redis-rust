@@ -1,5 +1,3 @@
-use core::fmt;
-use std::fmt::Formatter;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
@@ -10,16 +8,18 @@ use tokio::time::{self, Duration};
 pub use config::Config;
 use connection::{Connection, Handler};
 use db::Db;
+use frame::Frame;
+use replica::Replinfo;
+use role::Role;
 
-use crate::redis::frame::Frame;
-
-mod connection;
 mod cmd;
+mod connection;
 mod config;
 mod db;
 mod frame;
 mod parser;
-mod slave;
+mod replica;
+mod role;
 mod utils;
 
 
@@ -30,34 +30,19 @@ pub struct Server {
 }
 
 impl Server {
-    fn new(listener: TcpListener, db: Db, info: ServerInfo) -> Server {
-        Server {
-            listener,
-            db,
-            info,
-        }
-    }
-
     pub async fn setup(cfg: &Config) -> Result<Server> {
-        let role = match &cfg.replicaof {
+        let role = match &cfg.repl_of {
             Some(_) => Role::Slave,
             None => Role::Master
         };
 
-        let server = Server::new(
-            TcpListener::bind(cfg.addr.to_string()).await?,
-            Db::new(),
-            ServerInfo::new(cfg.addr.clone(), role, cfg.replicaof.clone()),
-        );
-
-        Ok(server)
-    }
-
-    async fn on_startup(&mut self) -> Option<Connection> {
-        match self.info.role {
-            Role::Slave => Some(self.connect_to_master().await.ok()?),
-            Role::Master => None
-        }
+        Ok(
+            Server {
+                listener: TcpListener::bind(cfg.addr.to_string()).await?,
+                db: Db::new(),
+                info: ServerInfo::new(cfg.addr.clone(), role, cfg.repl_of.clone()),
+            }
+        )
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -73,6 +58,22 @@ impl Server {
         loop {
             let socket = self.accept().await?;
             self.handle_connection(Connection::new(socket), sender.clone()).await;
+        }
+    }
+
+    async fn on_startup(&mut self) -> Option<Connection> {
+        match self.info.role {
+            Role::Slave => Some(self.connect_to_master().await.ok()?),
+            Role::Master => None
+        }
+    }
+
+    async fn connect_to_master(&self) -> Result<Connection> {
+        match &self.info.replinfo.repl_of {
+            None => bail!("No master address"),
+            Some(master_addr) => {
+                Ok(replica::handshake(&self.info, master_addr).await?)
+            }
         }
     }
 
@@ -113,30 +114,6 @@ impl Server {
             tries *= 2;
         }
     }
-
-    async fn connect_to_master(&self) -> Result<Connection> {
-        match &self.info.replinfo.replicaof {
-            None => bail!("No master address"),
-            Some(master_addr) => {
-                Ok(slave::handshake(&self.info, master_addr).await?)
-            }
-        }
-    }
-}
-
-#[derive(Clone, PartialEq)]
-pub enum Role {
-    Master,
-    Slave,
-}
-
-impl fmt::Display for Role {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Role::Master => write!(f, "master"),
-            Role::Slave => write!(f, "slave"),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -147,14 +124,14 @@ pub struct ServerInfo {
 }
 
 impl ServerInfo {
-    fn new(addr: utils::Addr, role: Role, replicaof: Option<utils::Addr>) -> ServerInfo {
+    fn new(addr: utils::Addr, role: Role, repl_of: Option<utils::Addr>) -> ServerInfo {
         ServerInfo {
             addr,
             role,
             replinfo: Arc::new(Replinfo {
                 repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
                 repl_offset: Mutex::new(0),
-                replicaof,
+                repl_of,
             }),
         }
     }
@@ -162,12 +139,6 @@ impl ServerInfo {
     pub fn is_master(&self) -> bool {
         self.role == Role::Master
     }
-}
-
-pub struct Replinfo {
-    repl_id: String,
-    repl_offset: Mutex<i64>,
-    replicaof: Option<utils::Addr>,
 }
 
 #[cfg(test)]

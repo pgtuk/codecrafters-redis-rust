@@ -1,9 +1,8 @@
 use std::{env, process};
 
-mod redis;
 use redis::{Config, Server};
 
-
+mod redis;
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
@@ -15,7 +14,7 @@ async fn main() {
 
     let mut redis = Server::setup(&config).await
         .expect("Failed to connect");
-    
+
     if let Err(e) = redis.run().await {
         eprintln!("Runtime error = {:?}", e);
     }

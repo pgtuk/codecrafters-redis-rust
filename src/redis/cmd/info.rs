@@ -11,7 +11,6 @@ impl Named for Info {
     const NAME: &'static str = "INFO";
 }
 
-
 impl Info {
     pub fn new() -> Info {
         Info {}

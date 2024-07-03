@@ -26,11 +26,11 @@ async fn start_server() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 
-    let mut server = Server::new(
+    let mut server = Server {
         listener,
-        Db::new(),
-        ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.replicaof.clone()),
-    );
+        db: Db::new(),
+        info: ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.repl_of.clone()),
+    };
     tokio::spawn(async move { server.run().await });
 
     addr

@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use bytes::{Buf, BytesMut, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use tokio::{
     io::{
         AsyncReadExt,
@@ -23,6 +23,7 @@ pub struct Connection {
     buffer: BytesMut,
     pub(crate) is_repl_conn: bool,
 }
+
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {

@@ -1,9 +1,9 @@
-use super::*;
 use crate::redis::tests::make_frame;
 
-// test parse
+use super::*;
+
 #[test]
-fn test_parse_simple () {
+fn test_parse_simple() {
     let frame = make_frame(b"+OK\r\n");
 
     let expected = Frame::Simple(
@@ -14,7 +14,7 @@ fn test_parse_simple () {
 }
 
 #[test]
-fn test_parse_bulk () {
+fn test_parse_bulk() {
     let frame = make_frame(b"$5\r\nhello\r\n");
 
     let expected = Frame::Bulk(
@@ -25,36 +25,36 @@ fn test_parse_bulk () {
 }
 
 #[test]
-fn test_parse_empty_bulk () {
+fn test_parse_empty_bulk() {
     let frame = make_frame(b"$0\r\n\r\n");
 
     let expected = Frame::Bulk(
         Bytes::from_static(b"")
     );
-    
+
     assert_eq!(expected, frame);
 }
 
 #[test]
-fn test_parse_null_bulk () {
+fn test_parse_null_bulk() {
     let frame = make_frame(b"$-1\r\n");
 
     let expected = Frame::Null;
-    
+
     assert_eq!(expected, frame);
 }
 
 #[test]
-fn test_parse_integer () {
+fn test_parse_integer() {
     let frame = make_frame(b":1000\r\n");
 
     let expected = Frame::Integer(1000);
-    
+
     assert_eq!(expected, frame);
 }
 
 #[test]
-fn test_to_response_integer () {
+fn test_to_response_integer() {
     let input = b":1000\r\n";
     let frame = make_frame(input);
     let response = frame.to_response();
@@ -63,19 +63,17 @@ fn test_to_response_integer () {
 }
 
 #[test]
-fn test_parse_array () {
+fn test_parse_array() {
     let frame = make_frame(b"*2\r\n$4\r\nPING\r\n$-1\r\n");
-    
+
     let expected = Frame::Array(vec![
         Frame::Bulk(Bytes::from_static(b"PING")),
-        Frame::Null
+        Frame::Null,
     ]);
-    
+
     assert_eq!(expected, frame);
 }
 
-
-// test to_response
 #[test]
 fn test_to_response_simple() {
     let input = b"+OK\r\n";

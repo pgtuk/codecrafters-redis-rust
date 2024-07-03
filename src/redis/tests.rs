@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use bytes::Bytes;
 use tokio::net::TcpStream;
-use tokio::time::{self, Duration, sleep};
+use tokio::time::{Duration, sleep};
 
 use super::cmd::ClientCmd;
 use super::cmd::get::Get;
@@ -18,13 +18,13 @@ pub fn make_frame(input: &[u8]) -> Frame {
     Frame::parse(&mut cursor).unwrap()
 }
 
-fn config(host: &str, port: &str, replicaof: Option<&Addr>) -> Config {
+fn config(host: &str, port: &str, repl_of: Option<&Addr>) -> Config {
     Config {
         addr: Addr {
             host: host.to_string(),
             port: port.to_string(),
         },
-        replicaof: match replicaof {
+        repl_of: match repl_of {
             Some(addr) => Some(addr.clone()),
             None => None
         },
@@ -35,22 +35,6 @@ async fn setup_server(cfg: &Config) -> Server {
     Server::setup(cfg).await.unwrap()
 }
 
-#[tokio::test]
-async fn test_master_slave_handshake() {
-    let master_cfg = config("127.0.0.1", "6379", None);
-    let slave_cfg = config("127.0.0.1", "6380", Some(&master_cfg.addr));
-
-    let mut master = setup_server(&master_cfg).await;
-    let mut slave = setup_server(&slave_cfg).await;
-
-    let mt = tokio::spawn(async move { master.run().await.unwrap() });
-    let st = tokio::spawn(async move { slave.run().await.unwrap() });
-
-    time::sleep(Duration::from_millis(100)).await;
-
-    st.abort();
-    mt.abort();
-}
 
 #[tokio::test]
 async fn test_replication() {
@@ -81,7 +65,6 @@ async fn test_replication() {
 
     let slave_socket = TcpStream::connect(slave_cfg.addr.to_string()).await.unwrap();
     let mut slave_conn = Connection::new(slave_socket);
-
 
     slave_conn.write_frame(&get.to_frame()).await.unwrap();
 

@@ -13,7 +13,6 @@ pub struct Get {
     key: String,
 }
 
-
 impl Named for Get {
     const NAME: &'static str = "GET";
 }

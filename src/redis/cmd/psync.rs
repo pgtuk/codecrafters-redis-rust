@@ -8,8 +8,6 @@ use crate::redis::{
 
 use super::ClientCmd;
 
-
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Psync {
     pub replication_id: String,
@@ -38,20 +36,19 @@ impl Default for Psync {
 }
 
 impl ClientCmd for Psync {
-
     fn to_frame(&self) -> Frame {
         let mut frame = Frame::array();
 
         let items: Vec<String> = vec![
-            Psync::NAME.to_string(), 
-            self.replication_id.clone(), 
+            Psync::NAME.to_string(),
+            self.replication_id.clone(),
             self.offset.to_string(),
         ];
 
         for item in items {
             frame.add(Frame::Bulk(item.into()))
         }
-   
+
         frame
     }
 }

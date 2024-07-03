@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use tokio::sync::broadcast::Sender;
 
-use crate::redis::{cmd, ServerInfo};
 use crate::redis::cmd::Command;
 use crate::redis::connection::Connection;
 use crate::redis::db::Db;
 use crate::redis::frame::Frame;
+use crate::redis::ServerInfo;
 
 pub struct Handler {
     connection: Connection,
@@ -65,7 +65,7 @@ impl Handler {
     }
 
     async fn run_as_cmd(&mut self, frame: &Frame) -> anyhow::Result<Command> {
-        let cmd = cmd::Command::from_frame(frame)?;
+        let cmd = Command::from_frame(frame)?;
         cmd.apply(
             &mut self.connection,
             &mut self.db,

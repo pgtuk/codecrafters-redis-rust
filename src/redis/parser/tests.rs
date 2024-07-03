@@ -1,21 +1,21 @@
 use bytes::Bytes;
 
 use crate::redis::frame::Frame;
-use super::*;
 
+use super::*;
 
 #[test]
 fn test_create_parser() {
     let empty_frame = Frame::Null;
     let simple_frame = Frame::Simple("ok".to_string());
-    
+
     let frame = Frame::Array(vec![
         empty_frame.clone(),
         simple_frame.clone(),
     ]);
-    
+
     let mut parser = Parser::new(&frame).unwrap();
-    
+
     assert_eq!(*parser.next().unwrap(), empty_frame);
     assert_eq!(*parser.next().unwrap(), simple_frame);
     assert_eq!(
