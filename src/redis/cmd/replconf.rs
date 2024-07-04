@@ -40,7 +40,7 @@ impl Replconf {
             ReplconfParam::ListeningPort | ReplconfParam::Capa => Frame::Simple("OK".to_string()),
             ReplconfParam::Getack => Frame::Array(vec![
                 Frame::Simple("replconf".to_string()),
-                Frame::Simple("getack".to_string()),
+                Frame::Simple("ack".to_string()),
                 Frame::Simple("0".to_string()),
             ])
         }
