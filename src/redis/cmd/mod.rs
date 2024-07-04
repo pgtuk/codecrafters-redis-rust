@@ -57,19 +57,24 @@ impl Command {
     }
 
     pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
-        // returns result of calling the command on server side
+        let mut should_reply = !conn.is_repl_conn;
+
         let response = match self {
             Command::Ping(cmd) => { cmd.apply() }
             Command::Echo(cmd) => { cmd.apply() }
             Command::Set(cmd) => { cmd.apply(db) }
             Command::Get(cmd) => { cmd.apply(db) }
             Command::Info(cmd) => { cmd.apply(info) }
-            Command::Replconf(cmd) => { cmd.apply() }
+            Command::Replconf(cmd) => {
+                // the only command to which replica replies
+                should_reply = true;
+                cmd.apply()
+            }
             Command::Psync(cmd) => { cmd.apply(info) }
             // _ => unimplemented!()
         };
 
-        if !conn.is_repl_conn {
+        if should_reply {
             conn.write_frame(&response).await?;
             if let Command::Psync(_) = self {
                 conn.write_rdb(&db.build_rdb_frame()).await?

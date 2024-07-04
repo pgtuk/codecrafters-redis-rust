@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 
 use crate::redis::{
     frame::Frame,
@@ -21,12 +21,29 @@ impl Named for Replconf {
 }
 
 impl Replconf {
-    pub fn parse_args(_: &mut Parser) -> Result<Replconf> {
-        Ok(Replconf { param: ReplconfParam::ListeningPort, arg: "args".to_string() })
+    pub fn parse_args(parser: &mut Parser) -> Result<Replconf> {
+        let param_as_str = parser.next_string()?.to_lowercase();
+        let arg = parser.next_string()?.to_lowercase();
+        let param = match &param_as_str[..] {
+            "listening-port" => ReplconfParam::ListeningPort,
+            "capa" => ReplconfParam::Capa,
+            "getack" => ReplconfParam::Getack,
+            unknown => return Err(Error::msg(
+                format!("Unknown replconf param `{unknown}`")
+            )),
+        };
+        Ok(Replconf { param, arg })
     }
 
     pub fn apply(&self) -> Frame {
-        Frame::Simple("OK".to_string())
+        match self.param {
+            ReplconfParam::ListeningPort | ReplconfParam::Capa => Frame::Simple("OK".to_string()),
+            ReplconfParam::Getack => Frame::Array(vec![
+                Frame::Simple("replconf".to_string()),
+                Frame::Simple("getack".to_string()),
+                Frame::Simple("0".to_string()),
+            ])
+        }
     }
 }
 
@@ -52,6 +69,7 @@ impl ClientCmd for Replconf {
 pub enum ReplconfParam {
     ListeningPort,
     Capa,
+    Getack,
 }
 
 impl fmt::Display for ReplconfParam {
@@ -59,6 +77,7 @@ impl fmt::Display for ReplconfParam {
         match self {
             ReplconfParam::ListeningPort => write!(f, "listening-port"),
             ReplconfParam::Capa => write!(f, "capa"),
+            ReplconfParam::Getack => write!(f, "getack")
         }
     }
 }
