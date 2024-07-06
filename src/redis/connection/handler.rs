@@ -50,6 +50,7 @@ impl Handler {
 
                     // after psync cmd master starts listening for write commands to replicate
                     Command::Psync(_) => {
+                        self.incr_repl_count();
                         let mut receiver = self.sender.subscribe();
 
                         while let Ok(frame) = receiver.recv().await {
@@ -62,7 +63,12 @@ impl Handler {
         }
     }
 
-    pub fn increase_offset(&mut self, increase: usize) {
+    fn incr_repl_count(&mut self) {
+        let mut count = self.server_info.replinfo.repl_count.lock().unwrap();
+        *count += 1;
+    }
+
+    fn increase_offset(&mut self, increase: usize) {
         let mut offset = self.server_info.replinfo.repl_offset.lock().unwrap();
         *offset += increase as i64;
         drop(offset);

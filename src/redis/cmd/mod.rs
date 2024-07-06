@@ -75,7 +75,7 @@ impl Command {
                 cmd.apply(info)
             }
             Command::Psync(cmd) => { cmd.apply(info) }
-            Command::Wait(cmd) => { cmd.apply().await }
+            Command::Wait(cmd) => { cmd.apply(info).await }
         };
 
         if should_reply {

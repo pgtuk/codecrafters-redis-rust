@@ -18,6 +18,7 @@ use super::{
 pub(crate) struct Replinfo {
     pub repl_id: String,
     pub repl_offset: Mutex<i64>,
+    pub repl_count: Mutex<i8>,
     pub repl_of: Option<Addr>,
 }
 

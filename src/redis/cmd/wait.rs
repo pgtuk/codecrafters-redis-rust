@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::redis::{frame::Frame, parser::Parser, utils::Named};
+use crate::redis::{frame::Frame, parser::Parser, ServerInfo, utils::Named};
 
 use super::ClientCmd;
 
@@ -22,8 +22,9 @@ impl Wait {
         Ok(Wait { numreplicas, timeout })
     }
 
-    pub async fn apply(&self) -> Frame {
-        Frame::Integer(self.numreplicas as u64)
+    pub async fn apply(&self, info: &ServerInfo) -> Frame {
+        let count = info.replinfo.repl_count.lock().unwrap();
+        Frame::Integer(*count as u64)
     }
 }
 
