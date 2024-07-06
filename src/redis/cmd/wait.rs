@@ -23,7 +23,7 @@ impl Wait {
     }
 
     pub async fn apply(&self) -> Frame {
-        Frame::Integer(0)
+        Frame::Integer(7)
     }
 }
 
