@@ -2,11 +2,7 @@ use std::fmt;
 
 use anyhow::{Error, Result};
 
-use crate::redis::{
-    frame::Frame,
-    parser::Parser,
-    utils::Named,
-};
+use crate::redis::{frame::Frame, parser::Parser, ServerInfo, utils::Named};
 
 use super::ClientCmd;
 
@@ -35,14 +31,16 @@ impl Replconf {
         Ok(Replconf { param, arg })
     }
 
-    pub fn apply(&self) -> Frame {
+    pub fn apply(&self, info: &ServerInfo) -> Frame {
         match self.param {
             ReplconfParam::ListeningPort | ReplconfParam::Capa => Frame::Simple("OK".to_string()),
-            ReplconfParam::Getack => Frame::Array(vec![
-                Frame::Simple("replconf".to_string()),
-                Frame::Simple("ACK".to_string()),
-                Frame::Simple("0".to_string()),
-            ])
+            ReplconfParam::Getack => {
+                Frame::Array(vec![
+                    Frame::Simple("replconf".to_string()),
+                    Frame::Simple("ACK".to_string()),
+                    Frame::Simple(info.replinfo.repl_offset.lock().unwrap().to_string()),
+                ])
+            }
         }
     }
 }

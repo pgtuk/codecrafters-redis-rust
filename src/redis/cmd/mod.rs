@@ -68,7 +68,7 @@ impl Command {
             Command::Replconf(cmd) => {
                 // the only command to which replica replies
                 should_reply = true;
-                cmd.apply()
+                cmd.apply(info)
             }
             Command::Psync(cmd) => { cmd.apply(info) }
             // _ => unimplemented!()
