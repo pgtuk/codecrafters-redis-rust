@@ -7,6 +7,7 @@ pub use ping::Ping;
 pub use psync::Psync;
 use replconf::Replconf;
 use set::Set;
+use wait::Wait;
 
 use super::{
     connection::Connection,
@@ -23,6 +24,7 @@ mod ping;
 mod set;
 pub mod replconf;
 mod psync;
+mod wait;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Command {
@@ -33,6 +35,7 @@ pub enum Command {
     Info(Info),
     Replconf(Replconf),
     Psync(Psync),
+    Wait(Wait),
 }
 
 impl Command {
@@ -50,6 +53,7 @@ impl Command {
             "info" => Command::Info(Info::parse_args()?),
             "replconf" => Command::Replconf(Replconf::parse_args(&mut parser)?),
             "psync" => Command::Psync(Psync::parse_args(&mut parser)?),
+            "wait" => Command::Wait(Wait::parse_args(&mut parser)?),
             _ => unimplemented!(),
         };
 
@@ -71,7 +75,7 @@ impl Command {
                 cmd.apply(info)
             }
             Command::Psync(cmd) => { cmd.apply(info) }
-            // _ => unimplemented!()
+            Command::Wait(cmd) => { cmd.apply().await }
         };
 
         if should_reply {
