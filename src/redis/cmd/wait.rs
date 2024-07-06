@@ -23,7 +23,7 @@ impl Wait {
     }
 
     pub async fn apply(&self) -> Frame {
-        Frame::Simple("0".to_string())
+        Frame::Integer(0)
     }
 }
 
