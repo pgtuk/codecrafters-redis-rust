@@ -38,30 +38,34 @@ impl Handler {
                 // None means that the socket was closed by peer
                 None => return Ok(()),
             };
-            // dbg!(&frame);
 
-            match self.run_as_cmd(&frame).await {
-                Ok(cmd) => {
-                    if self.server_info.is_master() {
-                        match cmd {
-                            // replicate write commands
-                            Command::Set(_) => { self.sender.send(frame)?; }
+            let cmd = self.run_as_cmd(&frame).await?;
 
-                            // after psync cmd master starts listening for write commands to replicate
-                            Command::Psync(_) => {
-                                let mut receiver = self.sender.subscribe();
+            self.increase_offset(frame.byte_len());
 
-                                while let Ok(frame) = receiver.recv().await {
-                                    self.connection.write_frame(&frame).await?
-                                }
-                            }
-                            _ => (),
+            if self.server_info.is_master() {
+                match cmd {
+                    // replicate write commands
+                    Command::Set(_) => { self.sender.send(frame)?; }
+
+                    // after psync cmd master starts listening for write commands to replicate
+                    Command::Psync(_) => {
+                        let mut receiver = self.sender.subscribe();
+
+                        while let Ok(frame) = receiver.recv().await {
+                            self.connection.write_frame(&frame).await?
                         }
-                    };
+                    }
+                    _ => (),
                 }
-                _ => continue
-            }
+            };
         }
+    }
+
+    pub fn increase_offset(&mut self, increase: usize) {
+        let mut offset = self.server_info.replinfo.repl_offset.lock().unwrap();
+        *offset += increase as i64;
+        drop(offset);
     }
 
     async fn run_as_cmd(&mut self, frame: &Frame) -> anyhow::Result<Command> {

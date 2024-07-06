@@ -257,7 +257,6 @@ async fn test_cmd_info() {
     conn.write_frame(&info.to_frame()).await.unwrap();
 
     let response = conn.read_frame().await.unwrap().unwrap();
-    // dbg!(frame);
 
     let expected = Frame::Bulk(Bytes::from_static(
         b"role:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"

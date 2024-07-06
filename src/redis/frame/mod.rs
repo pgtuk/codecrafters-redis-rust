@@ -9,7 +9,7 @@ use std::{
 use bytes::{Buf, Bytes};
 use thiserror::Error;
 
-use crate::redis::utils::{add_cr, int_as_bytes};
+use crate::redis::utils;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
@@ -164,10 +164,10 @@ impl Frame {
 
                 buff.push(b'$');
 
-                buff.extend(int_as_bytes(&val.len()));
-                add_cr(&mut buff);
+                buff.extend(utils::int_as_bytes(&val.len()));
+                utils::add_cr(&mut buff);
                 buff.extend(val);
-                add_cr(&mut buff);
+                utils::add_cr(&mut buff);
 
                 buff
             }
@@ -175,9 +175,9 @@ impl Frame {
                 let mut buff: Vec<u8> = Vec::new();
                 buff.push(b'*');
 
-                buff.extend(int_as_bytes(&arr.len()));
+                buff.extend(utils::int_as_bytes(&arr.len()));
 
-                add_cr(&mut buff);
+                utils::add_cr(&mut buff);
                 for frame in arr {
                     buff.extend(frame.to_response());
                 }
@@ -195,6 +195,22 @@ impl Frame {
         match self {
             Frame::Array(arr) => arr.push(frame),
             _ => panic!("Must be an array frame")
+        }
+    }
+
+    pub fn byte_len(&self) -> usize {
+        match self {
+            Frame::Simple(s) => s.len() + 3, // len of str + 1 for encoding byte + 2 for\r\n
+            Frame::Integer(n) => utils::count_digits(&(*n as usize)) + 3,
+            Frame::Array(arr) => {
+                let mut len = utils::count_digits(&arr.len()) + 3;
+                for frame in arr {
+                    len += frame.byte_len();
+                }
+                len
+            }
+            Frame::Bulk(s) => utils::count_digits(&s.len()) + s.len() + 5,
+            Frame::Null => 5
         }
     }
 }

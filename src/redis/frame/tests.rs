@@ -100,3 +100,16 @@ fn test_to_response_bulk() {
 
     assert_eq!(response, input)
 }
+
+#[test]
+fn test_byte_len() {
+    let input = b"*3\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n";
+
+    let frame = make_frame(input);
+
+    assert_eq!(
+        frame.byte_len(),
+        input.len()
+    )
+}
+

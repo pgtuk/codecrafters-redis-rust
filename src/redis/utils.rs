@@ -39,6 +39,34 @@ pub fn int_as_bytes(i: &usize) -> Vec<u8> {
     buff
 }
 
+pub fn count_digits(n: &usize) -> usize {
+    1 + n.checked_ilog10().unwrap_or(0) as usize
+}
+
 pub fn add_cr(buff: &mut Vec<u8>) {
     buff.extend([b'\r', b'\n']);
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_count_digits() {
+        assert_eq!(
+            count_digits(&(123 as usize)),
+            3
+        );
+
+        assert_eq!(
+            count_digits(&(12 as usize)),
+            2
+        );
+
+        assert_eq!(
+            count_digits(&(1 as usize)),
+            1
+        );
+    }
 }

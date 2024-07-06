@@ -2,6 +2,7 @@ use std::io::Cursor;
 
 use bytes::Bytes;
 use tokio::net::TcpStream;
+use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
 
 use super::cmd::ClientCmd;
@@ -18,38 +19,60 @@ pub fn make_frame(input: &[u8]) -> Frame {
     Frame::parse(&mut cursor).unwrap()
 }
 
-fn config(host: &str, port: &str, repl_of: Option<&Addr>) -> Config {
-    Config {
-        addr: Addr {
-            host: host.to_string(),
-            port: port.to_string(),
-        },
-        repl_of: match repl_of {
-            Some(addr) => Some(addr.clone()),
-            None => None
-        },
-    }
+
+struct TestSetup {
+    master_cfg: Config,
+    slave_cfg: Config,
+
+    _mt: JoinHandle<()>,
+    _st: JoinHandle<()>,
 }
 
-async fn setup_server(cfg: &Config) -> Server {
-    Server::setup(cfg).await.unwrap()
+impl TestSetup {
+    async fn setup() -> TestSetup {
+        let master_cfg = TestSetup::config("127.0.0.1", "6379", None);
+        let slave_cfg = TestSetup::config("127.0.0.1", "6380", Some(&master_cfg.addr));
+
+        let mut master = TestSetup::setup_server(&master_cfg).await;
+        let mut slave = TestSetup::setup_server(&slave_cfg).await;
+
+        let _mt = tokio::spawn(async move { master.run().await.unwrap() });
+        let _st = tokio::spawn(async move { slave.run().await.unwrap() });
+
+        TestSetup {
+            master_cfg,
+            slave_cfg,
+            _mt,
+            _st,
+        }
+    }
+
+    fn config(host: &str, port: &str, repl_of: Option<&Addr>) -> Config {
+        Config {
+            addr: Addr {
+                host: host.to_string(),
+                port: port.to_string(),
+            },
+            repl_of: match repl_of {
+                Some(addr) => Some(addr.clone()),
+                None => None
+            },
+        }
+    }
+
+    async fn setup_server(cfg: &Config) -> Server {
+        Server::setup(cfg).await.unwrap()
+    }
 }
 
 
 #[tokio::test]
 async fn test_replication() {
-    let master_cfg = config("127.0.0.1", "6379", None);
-    let slave_cfg = config("127.0.0.1", "6380", Some(&master_cfg.addr));
-
-    let mut master = setup_server(&master_cfg).await;
-    let mut slave = setup_server(&slave_cfg).await;
-
-    let _mt = tokio::spawn(async move { master.run().await.unwrap() });
-    let _st = tokio::spawn(async move { slave.run().await.unwrap() });
+    let setup = TestSetup::setup().await;
 
     sleep(Duration::from_millis(100)).await;
 
-    let master_socket = TcpStream::connect(master_cfg.addr.to_string()).await.unwrap();
+    let master_socket = TcpStream::connect(setup.master_cfg.addr.to_string()).await.unwrap();
     let mut master_conn = Connection::new(master_socket);
     let get = Get::new("grape".to_string());
     let input = b"*3\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n";
@@ -63,7 +86,7 @@ async fn test_replication() {
 
     sleep(Duration::from_millis(100)).await;
 
-    let slave_socket = TcpStream::connect(slave_cfg.addr.to_string()).await.unwrap();
+    let slave_socket = TcpStream::connect(setup.slave_cfg.addr.to_string()).await.unwrap();
     let mut slave_conn = Connection::new(slave_socket);
 
     slave_conn.write_frame(&get.to_frame()).await.unwrap();
