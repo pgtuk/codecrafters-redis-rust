@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::{Mutex, RwLock};
 use tokio::sync::broadcast::{self, Sender};
-use tokio::sync::Mutex;
 use tokio::time::{self, Duration};
 
 pub use config::Config;
@@ -135,6 +135,7 @@ impl ServerInfo {
                 count: Mutex::new(0),
                 master,
                 wait_lock: Mutex::new(false),
+                repl_completed: RwLock::new(0),
             }),
         }
     }

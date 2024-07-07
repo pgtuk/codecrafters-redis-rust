@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use super::{
     cmd::{
@@ -22,6 +22,8 @@ pub(crate) struct Replinfo {
     pub master: Option<Addr>,
 
     pub wait_lock: Mutex<bool>,
+    //
+    pub repl_completed: RwLock<i8>,
 }
 
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {

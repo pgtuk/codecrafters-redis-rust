@@ -29,16 +29,31 @@ impl Wait {
     pub async fn apply(&self, info: &ServerInfo) -> Frame {
         let mut wait_lock = info.replinfo.wait_lock.lock().await;
         *wait_lock = true;
-        let _ = timeout(
+
+        let ack = match timeout(
             Duration::from_millis(self.timeout),
             self.wait_for_replication(self.numreplicas, info.replinfo.clone()),
-        ).await;
+        ).await {
+            Ok(_) => self.numreplicas,
+            _ => *info.replinfo.repl_completed.read().await,
+        };
 
-        Frame::Integer(2)
+        let frame = Frame::Integer(ack as u64);
+
+        let mut reset = info.replinfo.repl_completed.write().await;
+        *reset = 0;
+
+        frame
     }
 
-    async fn wait_for_replication(&self, n: i8, _: Arc<Replinfo>) -> i8 {
-        n
+    async fn wait_for_replication(&self, n: i8, replinfo: Arc<Replinfo>) -> i8 {
+        loop {
+            let count = replinfo.repl_completed.read().await;
+
+            if *count >= n {
+                return *count;
+            }
+        }
     }
 }
 

@@ -56,6 +56,10 @@ impl Handler {
 
                         while let Ok(frame) = receiver.recv().await {
                             self.connection.write_frame(&frame).await?;
+
+                            if receiver.is_empty() {
+                                self.ack_sync().await;
+                            }
                         };
                     }
                     _ => (),
@@ -64,8 +68,13 @@ impl Handler {
         }
     }
 
-    async fn check_wait_lock(&self) {
-        let _ = self.server_info.replinfo.wait_lock.lock().await;
+    async fn ack_sync(&self) {
+        let mut ack = self.server_info.replinfo.repl_completed.write().await;
+        *ack += 1;
+    }
+
+    async fn check_wait_lock(&self) -> bool {
+        *self.server_info.replinfo.wait_lock.lock().await
     }
 
     async fn increase_offset(&mut self, increase: usize) {
