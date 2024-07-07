@@ -59,15 +59,18 @@ impl Handler {
                             self.connection.write_frame(&frame).await?;
 
                             if receiver.is_empty() {
-                                self.ack_sync().await;
+                                let getack = Replconf {
+                                    param: ReplconfParam::Getack,
+                                    arg: "*".to_string(),
+                                };
+
+                                self.connection.write_frame(&getack.to_frame()).await?;
+                                if let Some(frame) = self.connection.read_frame().await? {
+                                    if frame != Frame::Null {
+                                        self.ack_sync().await;
+                                    }
+                                }
                             }
-
-                            let getack = Replconf {
-                                param: ReplconfParam::Getack,
-                                arg: "*".to_string(),
-                            };
-
-                            self.connection.write_frame(&getack.to_frame()).await?;
                         };
                     }
                     _ => (),
