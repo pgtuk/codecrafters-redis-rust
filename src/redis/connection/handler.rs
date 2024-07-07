@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use tokio::sync::broadcast::Sender;
 
-use crate::redis::cmd::Command;
+use crate::redis::cmd::{ClientCmd, Command};
+use crate::redis::cmd::replconf::{Replconf, ReplconfParam};
 use crate::redis::connection::Connection;
 use crate::redis::db::Db;
 use crate::redis::frame::Frame;
@@ -60,6 +61,13 @@ impl Handler {
                             if receiver.is_empty() {
                                 self.ack_sync().await;
                             }
+
+                            let getack = Replconf {
+                                param: ReplconfParam::Getack,
+                                arg: "*".to_string(),
+                            };
+
+                            self.connection.write_frame(&getack.to_frame()).await?;
                         };
                     }
                     _ => (),
