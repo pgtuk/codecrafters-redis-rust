@@ -3,7 +3,7 @@ use super::utils::Addr;
 #[derive(Default)]
 pub struct Config {
     pub addr: Addr,
-    pub repl_of: Option<Addr>,
+    pub master_addr: Option<Addr>,
 }
 
 impl Config {
@@ -15,8 +15,8 @@ impl Config {
             match args[i].as_str() {
                 "--host" => cfg.addr.host = extract_arg(&args, i + 1)?,
                 "--port" => cfg.addr.port = extract_arg(&args, i + 1)?,
-                "--replicaof" => cfg.repl_of = Some(
-                    Config::parse_repl_of(
+                "--replicaof" => cfg.master_addr = Some(
+                    Config::parse_master_addr(
                         extract_arg(&args, i + 1)?
                     )?
                 ),
@@ -27,7 +27,7 @@ impl Config {
         Ok(cfg)
     }
 
-    fn parse_repl_of(addr_line: String) -> Result<Addr, String> {
+    fn parse_master_addr(addr_line: String) -> Result<Addr, String> {
         match addr_line.split_once(' ') {
             Some((host, port)) => Ok(Addr {
                 host: host.to_string(),

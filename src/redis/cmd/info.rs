@@ -30,8 +30,8 @@ impl Info {
         format!(
             "role:{role}\nmaster_replid:{replid}\nmaster_repl_offset:{reploffset}",
             role = info.role,
-            replid = info.replinfo.repl_id,
-            reploffset = info.replinfo.repl_offset.lock().unwrap(),
+            replid = info.replinfo.id,
+            reploffset = info.replinfo.offset.lock().unwrap(),
         )
     }
 }

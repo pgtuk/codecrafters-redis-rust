@@ -7,7 +7,7 @@ use super::ClientCmd;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Wait {
     pub numreplicas: i8,
-    pub timeout: i32,
+    pub timeout: u64,
 }
 
 impl Named for Wait {
@@ -17,14 +17,23 @@ impl Named for Wait {
 impl Wait {
     pub fn parse_args(parser: &mut Parser) -> Result<Wait> {
         let numreplicas = parser.next_string()?.parse::<i8>().unwrap();
-        let timeout = parser.next_string()?.parse::<i32>().unwrap();
+        let timeout = parser.next_string()?.parse::<u64>().unwrap();
 
         Ok(Wait { numreplicas, timeout })
     }
 
     pub async fn apply(&self, info: &ServerInfo) -> Frame {
-        let count = info.replinfo.repl_count.lock().unwrap();
-        Frame::Integer(*count as u64)
+        // let count = info.replinfo.count.lock().unwrap();
+        // let _ = timeout(
+        //     Duration::from_millis(self.timeout),
+        //     self.wait_for_replication(self.numreplicas),
+        // ).await;
+        // Frame::Integer(*count as u64)
+        Frame::Integer(2)
+    }
+
+    async fn wait_for_replication(&self, n: i8) -> i8 {
+        n
     }
 }
 

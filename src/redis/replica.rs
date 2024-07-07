@@ -16,10 +16,10 @@ use super::{
 };
 
 pub(crate) struct Replinfo {
-    pub repl_id: String,
-    pub repl_offset: Mutex<i64>,
-    pub repl_count: Mutex<i8>,
-    pub repl_of: Option<Addr>,
+    pub id: String,
+    pub offset: Mutex<i64>,
+    pub count: Mutex<i8>,
+    pub master: Option<Addr>,
 }
 
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {

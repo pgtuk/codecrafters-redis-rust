@@ -29,7 +29,7 @@ async fn start_server() -> SocketAddr {
     let mut server = Server {
         listener,
         db: Db::new(),
-        info: ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.repl_of.clone()),
+        info: ServerInfo::new(cfg.addr.clone(), Role::Master, cfg.master_addr.clone()),
     };
     tokio::spawn(async move { server.run().await });
 

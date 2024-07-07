@@ -63,7 +63,7 @@ impl Handler {
     }
 
     fn increase_offset(&mut self, increase: usize) {
-        let mut offset = self.server_info.replinfo.repl_offset.lock().unwrap();
+        let mut offset = self.server_info.replinfo.offset.lock().unwrap();
         *offset += increase as i64;
         drop(offset);
     }
@@ -83,7 +83,7 @@ impl Handler {
 impl Drop for Handler {
     fn drop(&mut self) {
         if self.connection.is_repl_conn && self.server_info.is_master() {
-            let mut count = self.server_info.replinfo.repl_count.lock().unwrap();
+            let mut count = self.server_info.replinfo.count.lock().unwrap();
             *count -= 1;
         }
     }

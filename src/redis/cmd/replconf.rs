@@ -38,7 +38,7 @@ impl Replconf {
                 Frame::Array(vec![
                     Frame::Simple("replconf".to_string()),
                     Frame::Simple("ACK".to_string()),
-                    Frame::Simple(info.replinfo.repl_offset.lock().unwrap().to_string()),
+                    Frame::Simple(info.replinfo.offset.lock().unwrap().to_string()),
                 ])
             }
         }

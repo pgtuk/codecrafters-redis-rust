@@ -47,13 +47,13 @@ impl TestSetup {
         }
     }
 
-    fn config(host: &str, port: &str, repl_of: Option<&Addr>) -> Config {
+    fn config(host: &str, port: &str, master: Option<&Addr>) -> Config {
         Config {
             addr: Addr {
                 host: host.to_string(),
                 port: port.to_string(),
             },
-            repl_of: match repl_of {
+            master_addr: match master {
                 Some(addr) => Some(addr.clone()),
                 None => None
             },

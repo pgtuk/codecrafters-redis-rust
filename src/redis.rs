@@ -31,7 +31,7 @@ pub struct Server {
 
 impl Server {
     pub async fn setup(cfg: &Config) -> Result<Server> {
-        let role = match &cfg.repl_of {
+        let role = match &cfg.master_addr {
             Some(_) => Role::Slave,
             None => Role::Master
         };
@@ -40,7 +40,7 @@ impl Server {
             Server {
                 listener: TcpListener::bind(cfg.addr.to_string()).await?,
                 db: Db::new(),
-                info: ServerInfo::new(cfg.addr.clone(), role, cfg.repl_of.clone()),
+                info: ServerInfo::new(cfg.addr.clone(), role, cfg.master_addr.clone()),
             }
         )
     }
@@ -69,7 +69,7 @@ impl Server {
     }
 
     async fn connect_to_master(&self) -> Result<Connection> {
-        match &self.info.replinfo.repl_of {
+        match &self.info.replinfo.master {
             None => bail!("No master address"),
             Some(master_addr) => {
                 Ok(replica::handshake(&self.info, master_addr).await?)
@@ -124,15 +124,15 @@ pub struct ServerInfo {
 }
 
 impl ServerInfo {
-    fn new(addr: utils::Addr, role: Role, repl_of: Option<utils::Addr>) -> ServerInfo {
+    fn new(addr: utils::Addr, role: Role, master: Option<utils::Addr>) -> ServerInfo {
         ServerInfo {
             addr,
             role,
             replinfo: Arc::new(Replinfo {
-                repl_id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
-                repl_offset: Mutex::new(0),
-                repl_count: Mutex::new(0),
-                repl_of,
+                id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
+                offset: Mutex::new(0),
+                count: Mutex::new(0),
+                master,
             }),
         }
     }

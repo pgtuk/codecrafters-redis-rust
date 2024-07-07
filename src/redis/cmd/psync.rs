@@ -26,11 +26,11 @@ impl Psync {
 
     pub fn apply(&self, info: &ServerInfo) -> Frame {
         self.incr_repl_count(info);
-        Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.repl_id))
+        Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.id))
     }
 
     fn incr_repl_count(&self, server_info: &ServerInfo) {
-        let mut count = server_info.replinfo.repl_count.lock().unwrap();
+        let mut count = server_info.replinfo.count.lock().unwrap();
         *count += 1;
     }
 }
