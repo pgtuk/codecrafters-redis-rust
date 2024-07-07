@@ -75,7 +75,7 @@ impl fmt::Display for ReplconfParam {
         match self {
             ReplconfParam::ListeningPort => write!(f, "listening-port"),
             ReplconfParam::Capa => write!(f, "capa"),
-            ReplconfParam::Getack => write!(f, "getack")
+            ReplconfParam::Getack => write!(f, "GETACK")
         }
     }
 }
