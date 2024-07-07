@@ -32,6 +32,8 @@ impl Handler {
 
     pub async fn handle_connection(&mut self) -> anyhow::Result<()> {
         loop {
+            self.check_wait_lock().await;
+
             let opt_frame = self.connection.read_frame().await?;
             let frame = match opt_frame {
                 Some(frame) => { frame }
@@ -41,7 +43,7 @@ impl Handler {
 
             let cmd = self.run_as_cmd(&frame).await?;
 
-            self.increase_offset(frame.byte_len());
+            self.increase_offset(frame.byte_len()).await;
 
             if self.server_info.is_master() {
                 match cmd {
@@ -62,10 +64,13 @@ impl Handler {
         }
     }
 
-    fn increase_offset(&mut self, increase: usize) {
-        let mut offset = self.server_info.replinfo.offset.lock().unwrap();
+    async fn check_wait_lock(&self) {
+        let _ = self.server_info.replinfo.wait_lock.lock().await;
+    }
+
+    async fn increase_offset(&mut self, increase: usize) {
+        let mut offset = self.server_info.replinfo.offset.lock().await;
         *offset += increase as i64;
-        drop(offset);
     }
 
     async fn run_as_cmd(&mut self, frame: &Frame) -> anyhow::Result<Command> {
@@ -83,7 +88,7 @@ impl Handler {
 impl Drop for Handler {
     fn drop(&mut self) {
         if self.connection.is_repl_conn && self.server_info.is_master() {
-            let mut count = self.server_info.replinfo.count.lock().unwrap();
+            let mut count = self.server_info.replinfo.count.blocking_lock();
             *count -= 1;
         }
     }

@@ -68,13 +68,13 @@ impl Command {
             Command::Echo(cmd) => { cmd.apply() }
             Command::Set(cmd) => { cmd.apply(db) }
             Command::Get(cmd) => { cmd.apply(db) }
-            Command::Info(cmd) => { cmd.apply(info) }
+            Command::Info(cmd) => { cmd.apply(info).await }
             Command::Replconf(cmd) => {
                 // the only command to which replica replies
                 should_reply = true;
                 cmd.apply(info)
             }
-            Command::Psync(cmd) => { cmd.apply(info) }
+            Command::Psync(cmd) => { cmd.apply(info).await }
             Command::Wait(cmd) => { cmd.apply(info).await }
         };
 

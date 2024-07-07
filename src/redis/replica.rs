@@ -1,7 +1,6 @@
-use std::sync::Mutex;
-
 use anyhow::{bail, Result};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 
 use super::{
     cmd::{
@@ -18,8 +17,11 @@ use super::{
 pub(crate) struct Replinfo {
     pub id: String,
     pub offset: Mutex<i64>,
+    // number of connected replicas
     pub count: Mutex<i8>,
     pub master: Option<Addr>,
+
+    pub wait_lock: Mutex<bool>,
 }
 
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {
