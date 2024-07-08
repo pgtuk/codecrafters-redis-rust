@@ -31,14 +31,14 @@ impl Replconf {
         Ok(Replconf { param, arg })
     }
 
-    pub fn apply(&self, info: &ServerInfo) -> Frame {
+    pub async fn apply(&self, info: &ServerInfo) -> Frame {
         match self.param {
             ReplconfParam::ListeningPort | ReplconfParam::Capa => Frame::Simple("OK".to_string()),
             ReplconfParam::Getack => {
                 Frame::Array(vec![
                     Frame::Simple("replconf".to_string()),
                     Frame::Simple("ACK".to_string()),
-                    Frame::Simple(info.replinfo.offset.blocking_lock().to_string()),
+                    Frame::Simple(info.replinfo.offset.lock().await.to_string()),
                 ])
             }
         }
