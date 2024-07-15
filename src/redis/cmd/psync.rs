@@ -24,14 +24,9 @@ impl Psync {
         Ok(Psync { replication_id: "replication_id".to_string(), offset: 1 })
     }
 
-    pub async fn apply(&self, info: &ServerInfo) -> Frame {
-        self.incr_repl_count(info).await;
+    pub async fn apply(&self, info: &mut ServerInfo) -> Frame {
+        info.replinfo.add_replica().await;
         Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.id))
-    }
-
-    async fn incr_repl_count(&self, server_info: &ServerInfo) {
-        let mut count = server_info.replinfo.count.lock().await;
-        *count += 1;
     }
 }
 

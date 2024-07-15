@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::{bail, Result};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
@@ -14,16 +16,34 @@ use super::{
     utils::{Addr, Named},
 };
 
+#[derive(Clone)]
 pub(crate) struct Replinfo {
     pub id: String,
-    pub offset: Mutex<i64>,
+    pub offset: Arc<Mutex<i64>>,
     // number of connected replicas
-    pub count: Mutex<i8>,
+    pub count: Arc<RwLock<i8>>,
     pub master: Option<Addr>,
 
-    pub wait_lock: Mutex<bool>,
+    pub wait_lock: Arc<Mutex<bool>>,
     //
-    pub repl_completed: RwLock<i8>,
+    pub repl_completed: Arc<RwLock<i8>>,
+}
+
+impl Replinfo {
+    pub(crate) async fn add_replica(&mut self) {
+        let mut count = self.count.write().await;
+        *count += 1
+    }
+
+    pub(crate) async fn drop_replica(&mut self) {
+        let mut count = self.count.write().await;
+        *count -= 1
+    }
+
+    pub(crate) fn blocking_drop_replica(&mut self) {
+        let mut count = self.count.blocking_write();
+        *count -= 1
+    }
 }
 
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {

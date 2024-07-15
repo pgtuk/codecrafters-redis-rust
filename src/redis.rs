@@ -94,6 +94,10 @@ impl Server {
             if let Err(e) = handler.handle_connection().await {
                 eprintln!("Error while handling connection: {}", e);
             };
+
+            if handler.connection.is_repl_conn && handler.server_info.is_master() {
+                handler.server_info.replinfo.drop_replica().await;
+            }
         });
     }
 
@@ -121,7 +125,7 @@ impl Server {
 pub struct ServerInfo {
     addr: utils::Addr,
     role: Role,
-    replinfo: Arc<Replinfo>,
+    replinfo: Replinfo,
 }
 
 impl ServerInfo {
@@ -129,14 +133,14 @@ impl ServerInfo {
         ServerInfo {
             addr,
             role,
-            replinfo: Arc::new(Replinfo {
+            replinfo: Replinfo {
                 id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
-                offset: Mutex::new(0),
-                count: Mutex::new(0),
+                offset: Arc::new(Mutex::new(0)),
+                count: Arc::new(RwLock::new(0)),
                 master,
-                wait_lock: Mutex::new(false),
-                repl_completed: RwLock::new(0),
-            }),
+                wait_lock: Arc::new(Mutex::new(false)),
+                repl_completed: Arc::new(RwLock::new(0)),
+            },
         }
     }
 

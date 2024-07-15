@@ -60,7 +60,7 @@ impl Command {
         Ok(command)
     }
 
-    pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &ServerInfo) -> Result<()> {
+    pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &mut ServerInfo) -> Result<()> {
         let mut should_reply = !conn.is_repl_conn;
 
         let response = match self {
