@@ -69,7 +69,6 @@ impl Handler {
                         let frame = if self.has_pending().await {
                             // just reply with number of connected replicas
                             // if no previous commands were propagated
-                            self.connection.write_frame(&frame).await?;
                             let repl_count = self.server_info.replinfo.count.read().await;
                             Frame::Integer(*repl_count as u64)
                         } else {
