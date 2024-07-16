@@ -3,11 +3,11 @@ use anyhow::Result;
 use echo::Echo;
 use get::Get;
 use info::Info;
-pub use ping::Ping;
-pub use psync::Psync;
+pub(crate) use ping::Ping;
+pub(crate) use psync::Psync;
 use replconf::Replconf;
 use set::Set;
-use wait::Wait;
+pub(crate) use wait::Wait;
 
 use super::{
     connection::Connection,
@@ -75,7 +75,7 @@ impl Command {
                 cmd.apply(info).await
             }
             Command::Psync(cmd) => { cmd.apply(info).await }
-            Command::Wait(cmd) => { cmd.apply(info).await }
+            Command::Wait(_) => { return Ok(()) }
         };
 
         if should_reply {

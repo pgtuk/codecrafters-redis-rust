@@ -9,9 +9,11 @@ pub enum Role {
 
 impl fmt::Display for Role {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Role::Master => write!(f, "master"),
-            Role::Slave => write!(f, "slave"),
-        }
+        let role = match self {
+            Role::Master => "master",
+            Role::Slave => "slave",
+        };
+
+        write!(f, "{}", role)
     }
 }

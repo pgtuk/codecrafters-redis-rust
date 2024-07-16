@@ -5,7 +5,7 @@ use tokio::{
     io::{
         AsyncReadExt,
         AsyncWriteExt,
-        BufWriter,
+        BufStream
     },
     net::TcpStream,
 };
@@ -19,8 +19,8 @@ use super::frame::{Frame, FrameError};
 pub(crate) mod handler;
 #[derive(Debug)]
 pub struct Connection {
-    stream: BufWriter<TcpStream>,
-    buffer: BytesMut,
+    pub stream: BufStream<TcpStream>,
+    pub buffer: BytesMut,
     pub(crate) is_repl_conn: bool,
 }
 
@@ -28,7 +28,7 @@ pub struct Connection {
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
         Connection {
-            stream: BufWriter::new(stream),
+            stream: BufStream::new(stream),
             buffer: BytesMut::with_capacity(4096),
             is_repl_conn: false,
         }
@@ -40,12 +40,8 @@ impl Connection {
                 return Ok(Some(frame));
             };
 
-            if 0 == self.stream.read_buf(&mut self.buffer).await? {
-                if self.buffer.is_empty() {
-                    return Ok(None);
-                } else {
-                    return Err("connection reset by peer".into());
-                }
+            if self.buf_empty().await? {
+                return Ok(None);
             }
         }
     }
@@ -76,12 +72,8 @@ impl Connection {
                 return Ok(Some(arr));
             };
 
-            if 0 == self.stream.read_buf(&mut self.buffer).await? {
-                if self.buffer.is_empty() {
-                    return Ok(None);
-                } else {
-                    return Err("connection reset by peer".into());
-                }
+            if self.buf_empty().await? {
+                return Ok(None);
             }
         }
     }
@@ -97,7 +89,7 @@ impl Connection {
         Ok(rdb)
     }
 
-    fn parse_frame(&mut self) -> Result<Option<Frame>, FrameError> {
+    pub fn parse_frame(&mut self) -> Result<Option<Frame>, FrameError> {
         let mut buf = Cursor::new(&self.buffer[..]);
 
         match Frame::check(&mut buf) {
@@ -115,5 +107,17 @@ impl Connection {
             Err(FrameError::Incomplete) => Ok(None),
             Err(e) => Err(e)
         }
+    }
+
+    async fn buf_empty(&mut self) -> Result<bool, FrameError> {
+        if 0 == self.stream.read_buf(&mut self.buffer).await? {
+            if self.buffer.is_empty() || self.is_repl_conn {
+                return Ok(true);
+            } else {
+                return Err("connection reset by peer".into());
+            }
+        }
+
+        Ok(false)
     }
 }

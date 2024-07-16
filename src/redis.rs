@@ -9,8 +9,7 @@ use tokio::time::{self, Duration};
 pub use config::Config;
 use connection::{Connection, Handler};
 use db::Db;
-use frame::Frame;
-use replica::Replinfo;
+use replica::{ReplicationMsg, Replinfo};
 use role::Role;
 
 mod cmd;
@@ -81,7 +80,7 @@ impl Server {
     async fn handle_connection(
         &self,
         conn: Connection,
-        sender: Arc<Sender<Frame>>,
+        sender: Arc<Sender<ReplicationMsg>>,
     ) {
         let mut handler = Handler::new(
             conn,

@@ -7,6 +7,7 @@ use tokio::time::{Duration, sleep};
 
 use super::cmd::ClientCmd;
 use super::cmd::get::Get;
+use super::cmd::Wait;
 use super::config::Config;
 use super::Connection;
 use super::frame::Frame;
@@ -81,17 +82,22 @@ async fn test_replication() {
 
     let master_socket = TcpStream::connect(setup.master_cfg.addr.to_string()).await.unwrap();
     let mut master_conn = Connection::new(master_socket);
-    let get = Get::new("grape".to_string());
+
     let input = b"*3\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n";
     let frame = make_frame(input);
 
     master_conn.write_frame(&frame).await.unwrap();
-
     master_conn.read_frame().await.unwrap();
 
-    master_conn.write_frame(&get.to_frame()).await.unwrap();
+    let wait = Wait {
+        numreplicas: 2,
+        timeout: 500
+    };
 
-    sleep(Duration::from_millis(100)).await;
+    master_conn.write_frame(&wait.to_frame()).await.unwrap();
+    master_conn.read_frame().await.unwrap();
+
+    let get = Get::new("grape".to_string());
 
     let repl1_socket = TcpStream::connect(setup.replica1_cfg.addr.to_string()).await.unwrap();
     let mut repl1_conn = Connection::new(repl1_socket);
@@ -107,8 +113,46 @@ async fn test_replication() {
 
     let response_from_repl2 = repl2_conn.read_frame().await.unwrap().unwrap();
 
-
     let expected = Frame::Bulk(Bytes::from_static(b"raspberry"));
+
+    assert_eq!(
+        response_from_repl1,
+        expected,
+    );
+    assert_eq!(
+        response_from_repl2,
+        expected,
+    );
+
+    let input = b"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n";
+    let frame = make_frame(input);
+
+    master_conn.write_frame(&frame).await.unwrap();
+    master_conn.read_frame().await.unwrap();
+
+    let wait = Wait {
+        numreplicas: 2,
+        timeout: 500
+    };
+
+    master_conn.write_frame(&wait.to_frame()).await.unwrap();
+    let wait_resp = master_conn.read_frame().await.unwrap().unwrap();
+
+    let expected = Frame::Integer(2);
+    assert_eq!(
+        wait_resp,
+        expected
+    );
+
+    let get = Get::new("foo".to_string());
+
+    repl1_conn.write_frame(&get.to_frame()).await.unwrap();
+    let response_from_repl1 = repl1_conn.read_frame().await.unwrap().unwrap();
+
+    repl2_conn.write_frame(&get.to_frame()).await.unwrap();
+    let response_from_repl2 = repl2_conn.read_frame().await.unwrap().unwrap();
+
+    let expected = Frame::Bulk(Bytes::from_static(b"bar"));
 
     assert_eq!(
         response_from_repl1,

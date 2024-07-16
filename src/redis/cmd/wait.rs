@@ -1,10 +1,6 @@
-use std::cmp;
-
 use anyhow::Result;
-use tokio::time::{Duration, timeout};
 
 use crate::redis::{frame::Frame, parser::Parser, ServerInfo, utils::Named};
-use crate::redis::replica::Replinfo;
 
 use super::ClientCmd;
 
@@ -29,13 +25,7 @@ impl Wait {
     pub async fn apply(&self, info: &ServerInfo) -> Frame {
         let _ = info.replinfo.wait_lock.lock().await;
 
-        let ack = match timeout(
-            Duration::from_millis(self.timeout),
-            self.wait_for_replication(self.numreplicas, &info.replinfo),
-        ).await {
-            Ok(_) => self.numreplicas,
-            _ => *info.replinfo.repl_completed.read().await,
-        };
+        let ack = *info.replinfo.repl_completed.read().await;
 
         let frame = Frame::Integer(ack as u64);
 
@@ -47,18 +37,6 @@ impl Wait {
     async fn reset_repl_counter(&self, info: &ServerInfo) {
         let mut reset = info.replinfo.repl_completed.write().await;
         *reset = 0;
-    }
-
-    async fn wait_for_replication(&self, n: i8, replinfo: &Replinfo) -> i8 {
-        let repl_count = replinfo.count.read().await;
-        // dbg!(format!("REPL COUNT {}", &repl_count));
-        loop {
-            let count = replinfo.repl_completed.read().await;
-
-            if *count >= cmp::min(n, *repl_count) {
-                return *count;
-            }
-        }
     }
 }
 

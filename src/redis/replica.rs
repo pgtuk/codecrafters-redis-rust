@@ -4,6 +4,8 @@ use anyhow::{bail, Result};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 
+use crate::redis::frame::Frame;
+
 use super::{
     cmd::{
         ClientCmd,
@@ -15,6 +17,12 @@ use super::{
     ServerInfo,
     utils::{Addr, Named},
 };
+
+#[derive(Debug, Clone)]
+pub(crate) enum ReplicationMsg {
+    Propagate(Frame),
+    Wait(u64),
+}
 
 #[derive(Clone)]
 pub(crate) struct Replinfo {
@@ -40,10 +48,10 @@ impl Replinfo {
         *count -= 1
     }
 
-    pub(crate) fn blocking_drop_replica(&mut self) {
-        let mut count = self.count.blocking_write();
-        *count -= 1
-    }
+    // pub(crate) fn blocking_drop_replica(&mut self) {
+    //     let mut count = self.count.blocking_write();
+    //     *count -= 1
+    // }
 }
 
 pub async fn handshake(slave_info: &ServerInfo, master_addr: &Addr) -> Result<Connection> {

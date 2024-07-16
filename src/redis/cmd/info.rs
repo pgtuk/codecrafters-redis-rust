@@ -22,7 +22,6 @@ impl Info {
 
     pub async fn apply(&self, info: &ServerInfo) -> Frame {
         let string = Info::build_info_string(info).await;
-        dbg!(&string);
         Frame::Bulk(string.into())
     }
 

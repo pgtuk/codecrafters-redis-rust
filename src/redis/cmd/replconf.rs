@@ -43,6 +43,13 @@ impl Replconf {
             }
         }
     }
+
+    pub fn getack() -> Replconf {
+        Replconf {
+            param: ReplconfParam::Getack,
+            arg: "*".to_string(),
+        }
+    }
 }
 
 impl ClientCmd for Replconf {

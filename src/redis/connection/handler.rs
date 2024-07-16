@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
 use tokio::sync::broadcast::Sender;
+use tokio::time::{Duration, sleep, timeout};
 
 use crate::redis::cmd::{ClientCmd, Command};
-use crate::redis::cmd::replconf::{Replconf, ReplconfParam};
+use crate::redis::cmd::replconf::Replconf;
 use crate::redis::connection::Connection;
 use crate::redis::db::Db;
-use crate::redis::frame::Frame;
+use crate::redis::replica::ReplicationMsg;
 use crate::redis::ServerInfo;
 
 pub struct Handler {
     pub(crate) connection: Connection,
     db: Db,
     pub(crate) server_info: ServerInfo,
-    sender: Arc<Sender<Frame>>,
+    sender: Arc<Sender<ReplicationMsg>>,
 }
 
 impl Handler {
@@ -21,7 +22,7 @@ impl Handler {
         connection: Connection,
         db: Db,
         server_info: ServerInfo,
-        sender: Arc<Sender<Frame>>,
+        sender: Arc<Sender<ReplicationMsg>>,
     ) -> Handler {
         Handler {
             connection,
@@ -43,44 +44,58 @@ impl Handler {
                 None => return Ok(()),
             };
 
-            let cmd = self.run_as_cmd(&frame).await?;
+            let cmd = Command::from_frame(&frame)?;
+
+            match cmd {
+                Command::Wait(_) => (),
+                _ => cmd.apply(
+                    &mut self.connection,
+                    &mut self.db,
+                    &mut self.server_info,
+                ).await?
+            }
 
             self.increase_offset(frame.byte_len()).await;
 
             if self.server_info.is_master() {
                 match cmd {
                     // replicate write commands
-                    Command::Set(_) => { self.sender.send(frame)?; }
+                    Command::Set(_) => { self.sender.send(ReplicationMsg::Propagate(frame))?; },
+                    Command::Wait(wait) => {
+                        self.sender.send(ReplicationMsg::Wait(wait.timeout))?;
+                        sleep(Duration::from_millis(wait.timeout)).await;
+                        let frame = wait.apply(&self.server_info).await;
+                        self.connection.write_frame(&frame).await?;
+                    },
 
-                    // after psync cmd master starts listening for write commands to replicate
-                    Command::Psync(_) => { self.handle_propagation().await? }
+                    // after psync cmd master starts handle_propagationlistening for write commands to replicate
+                    Command::Psync(_) => { self.handle_replication().await? }
                     _ => (),
                 }
             };
         }
     }
 
-    async fn handle_propagation(&mut self) -> anyhow::Result<()> {
+    async fn handle_replication(&mut self) -> anyhow::Result<()> {
         let mut receiver = self.sender.subscribe();
+        let getack = Replconf::getack();
 
-        while let Ok(frame) = receiver.recv().await {
-            self.connection.write_frame(&frame).await?;
-            if receiver.is_empty() {
-                let getack = Replconf {
-                    param: ReplconfParam::Getack,
-                    arg: "*".to_string(),
-                };
-                self.connection.write_frame(&getack.to_frame()).await?;
-                match self.connection.read_frame().await {
-                    Ok(Some(frame)) => {
-                        if frame != Frame::Null {
-                            self.ack_sync().await;
-                        }
-                    }
-                    Err(e) => return Err(e.into()),
-                    _ => continue
+        while let Ok(msg) = receiver.recv().await {
+            match msg {
+                ReplicationMsg::Propagate(frame) => {
+                    self.connection.write_frame(&frame).await?;
+                },
+                ReplicationMsg::Wait(wait_timeout) => {
+                    self.connection.write_frame(&getack.to_frame()).await?;
+
+                    match timeout(
+                        Duration::from_millis(wait_timeout),
+                        self.connection.read_frame(),
+                    ).await {
+                        Ok(_) => self.ack_sync().await,
+                        _ => (),
+                    };
                 }
-                self.connection.buffer.clear();
             }
         };
         Ok(())
@@ -98,17 +113,6 @@ impl Handler {
     async fn increase_offset(&mut self, increase: usize) {
         let mut offset = self.server_info.replinfo.offset.lock().await;
         *offset += increase as i64;
-    }
-
-    async fn run_as_cmd(&mut self, frame: &Frame) -> anyhow::Result<Command> {
-        let cmd = Command::from_frame(frame)?;
-        cmd.apply(
-            &mut self.connection,
-            &mut self.db,
-            &mut self.server_info,
-        ).await?;
-
-        Ok(cmd)
     }
 }
 
