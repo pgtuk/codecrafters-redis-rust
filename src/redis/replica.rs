@@ -34,7 +34,7 @@ pub(crate) struct Replinfo {
 
     pub wait_lock: Arc<Mutex<bool>>,
     pub repl_completed: Arc<RwLock<i8>>,
-    pub pending_commands: bool,
+    pub pending_commands: Arc<RwLock<bool>>,
 }
 
 impl Replinfo {

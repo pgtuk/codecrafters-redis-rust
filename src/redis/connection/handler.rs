@@ -62,11 +62,11 @@ impl Handler {
                 match cmd {
                     // replicate write commands
                     Command::Set(_) => {
-                        self.server_info.replinfo.pending_commands = true;
                         self.sender.send(ReplicationMsg::Propagate(frame))?;
+                        self.set_pending(true).await;
                     },
                     Command::Wait(wait) => {
-                        let frame = if self.has_pending() {
+                        let frame = if self.has_pending().await {
                             // just reply with number of connected replicas
                             // if no previous commands were propagated
                             self.connection.write_frame(&frame).await?;
@@ -113,8 +113,16 @@ impl Handler {
         Ok(())
     }
 
-    fn has_pending(&self) -> bool {
-        self.server_info.replinfo.pending_commands
+    async fn has_pending(&self) -> bool {
+        let pending = self.server_info.replinfo.pending_commands.read().await;
+
+        *pending
+    }
+
+    async fn set_pending(&mut self, val: bool) {
+        let mut pending = self.server_info.replinfo.pending_commands.write().await;
+
+        *pending = val
     }
 
     async fn ack_sync(&self) {
