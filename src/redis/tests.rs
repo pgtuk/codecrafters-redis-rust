@@ -163,3 +163,27 @@ async fn test_replication() {
         expected,
     );
 }
+
+#[tokio::test]
+async fn test_wait_no_commands() {
+    let setup = TestSetup::setup().await;
+
+    sleep(Duration::from_millis(100)).await;
+
+    let master_socket = TcpStream::connect(setup.master_cfg.addr.to_string()).await.unwrap();
+    let mut master_conn = Connection::new(master_socket);
+
+    let wait = Wait {
+        numreplicas: 3,
+        timeout: 500
+    };
+
+    master_conn.write_frame(&wait.to_frame()).await.unwrap();
+    let wait_resp = master_conn.read_frame().await.unwrap().unwrap();
+
+    let expected = Frame::Integer(2);
+    assert_eq!(
+        wait_resp,
+        expected
+    );
+}

@@ -7,6 +7,7 @@ use crate::redis::cmd::{ClientCmd, Command};
 use crate::redis::cmd::replconf::Replconf;
 use crate::redis::connection::Connection;
 use crate::redis::db::Db;
+use crate::redis::frame::Frame;
 use crate::redis::replica::ReplicationMsg;
 use crate::redis::ServerInfo;
 
@@ -60,11 +61,22 @@ impl Handler {
             if self.server_info.is_master() {
                 match cmd {
                     // replicate write commands
-                    Command::Set(_) => { self.sender.send(ReplicationMsg::Propagate(frame))?; },
+                    Command::Set(_) => {
+                        self.server_info.replinfo.pending_commands = true;
+                        self.sender.send(ReplicationMsg::Propagate(frame))?;
+                    },
                     Command::Wait(wait) => {
-                        self.sender.send(ReplicationMsg::Wait(wait.timeout))?;
-                        sleep(Duration::from_millis(wait.timeout)).await;
-                        let frame = wait.apply(&self.server_info).await;
+                        let frame = if self.has_pending() {
+                            // just reply with number of connected replicas
+                            // if no previous commands were propagated
+                            self.connection.write_frame(&frame).await?;
+                            let repl_count = self.server_info.replinfo.count.read().await;
+                            Frame::Integer(*repl_count as u64)
+                        } else {
+                            self.sender.send(ReplicationMsg::Wait(wait.timeout))?;
+                            sleep(Duration::from_millis(wait.timeout)).await;
+                            wait.apply(&self.server_info).await
+                        };
                         self.connection.write_frame(&frame).await?;
                     },
 
@@ -99,6 +111,10 @@ impl Handler {
             }
         };
         Ok(())
+    }
+
+    fn has_pending(&self) -> bool {
+        self.server_info.replinfo.pending_commands
     }
 
     async fn ack_sync(&self) {

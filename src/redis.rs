@@ -139,6 +139,7 @@ impl ServerInfo {
                 master,
                 wait_lock: Arc::new(Mutex::new(false)),
                 repl_completed: Arc::new(RwLock::new(0)),
+                pending_commands: false
             },
         }
     }

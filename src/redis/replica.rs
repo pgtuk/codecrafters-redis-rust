@@ -33,8 +33,8 @@ pub(crate) struct Replinfo {
     pub master: Option<Addr>,
 
     pub wait_lock: Arc<Mutex<bool>>,
-    //
     pub repl_completed: Arc<RwLock<i8>>,
+    pub pending_commands: bool,
 }
 
 impl Replinfo {
