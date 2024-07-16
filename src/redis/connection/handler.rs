@@ -66,7 +66,7 @@ impl Handler {
                         self.set_pending(true).await;
                     },
                     Command::Wait(wait) => {
-                        let frame = if self.has_pending().await {
+                        let frame = if !self.has_pending().await {
                             // just reply with number of connected replicas
                             // if no previous commands were propagated
                             let repl_count = self.server_info.replinfo.count.read().await;
