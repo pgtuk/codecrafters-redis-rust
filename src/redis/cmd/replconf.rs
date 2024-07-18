@@ -2,7 +2,12 @@ use std::fmt;
 
 use anyhow::{Error, Result};
 
-use crate::redis::{frame::Frame, parser::Parser, ServerInfo, utils::Named};
+use crate::redis::{
+    frame::Frame,
+    parser::Parser,
+    ServerInfo,
+    utils::Named
+};
 
 use super::ClientCmd;
 

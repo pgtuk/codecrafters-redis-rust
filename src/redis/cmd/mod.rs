@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use config::Config as ConfigCmd;
 use echo::Echo;
 use get::Get;
 use info::Info;
@@ -17,14 +18,17 @@ use super::{
     ServerInfo,
 };
 
-mod echo;
 pub mod get;
+pub mod replconf;
+
+mod config;
+mod echo;
 mod info;
 mod ping;
 mod set;
-pub mod replconf;
 mod psync;
 mod wait;
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Command {
@@ -36,6 +40,7 @@ pub enum Command {
     Replconf(Replconf),
     Psync(Psync),
     Wait(Wait),
+    Config(ConfigCmd)
 }
 
 impl Command {
@@ -54,6 +59,7 @@ impl Command {
             "replconf" => Command::Replconf(Replconf::parse_args(&mut parser)?),
             "psync" => Command::Psync(Psync::parse_args(&mut parser)?),
             "wait" => Command::Wait(Wait::parse_args(&mut parser)?),
+            "config" => Command::Config(ConfigCmd::parse_args(&mut parser)?),
             _ => unimplemented!(),
         };
 
@@ -75,7 +81,8 @@ impl Command {
                 cmd.apply(info).await
             }
             Command::Psync(cmd) => { cmd.apply(info).await }
-            Command::Wait(_) => { return Ok(()) }
+            Command::Wait(_) => { return Ok(()) },
+            Command::Config(cmd) => { cmd.apply() }
         };
 
         if should_reply {
