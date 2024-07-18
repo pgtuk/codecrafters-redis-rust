@@ -113,9 +113,7 @@ impl Handler {
     }
 
     async fn has_pending(&self) -> bool {
-        let pending = self.server_info.replinfo.pending_commands.read().await;
-
-        *pending
+        self.server_info.replinfo.has_pending().await
     }
 
     async fn set_pending(&mut self, val: bool) {

@@ -47,6 +47,12 @@ impl Replinfo {
         let mut count = self.count.write().await;
         *count -= 1
     }
+    
+    pub(crate) async fn has_pending(&self) -> bool {
+        let pending = self.pending_commands.read().await;
+
+        *pending
+    }
 
     // pub(crate) fn blocking_drop_replica(&mut self) {
     //     let mut count = self.count.blocking_write();
