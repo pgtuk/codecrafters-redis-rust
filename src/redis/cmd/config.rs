@@ -8,7 +8,7 @@ use crate::redis::utils::Named;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct Config {
-    subcommand: Subcommand
+    pub subcommand: Subcommand
 }
 
 impl Config {
@@ -23,7 +23,17 @@ impl Config {
     }
 
     pub(crate) fn apply (&self) -> Frame {
-        Frame::Null
+        let mut resp = Frame::array();
+
+        match &self.subcommand {
+            Subcommand::GET(params) => {
+                for param in params {
+                    resp.extend(param.to_frame())
+                }
+            }
+        }
+
+        resp
     }
 }
 
@@ -52,6 +62,23 @@ impl GetParams {
 
         Ok(params)
     }
+    fn to_frame(&self) -> Vec<Frame> {
+        let mut result = vec![];
+        match self {
+            GetParams::Dir => {
+                result.push(Frame::Bulk("dir".into()));
+                // hardcoded
+                result.push(Frame::Bulk("/tmp/".into()));
+            },
+            GetParams::DBfilename => {
+                result.push(Frame::Bulk("dbfilename".into()));
+                // hardcoded
+                result.push(Frame::Bulk("bd_name".into()));
+            }
+        }
+
+        result
+    }
 }
 
 impl Named for Config {
@@ -65,5 +92,33 @@ impl fmt::Display for Subcommand {
             // ReplconfParam::Capa => write!(f, "capa"),
             // ReplconfParam::Getack => write!(f, "GETACK")
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::redis::cmd::Command;
+    use crate::redis::tests::make_frame;
+
+    use super::*;
+
+    #[test]
+    fn test_cmd_config_get_from_frame() {
+        let input = b"*3\r\n$6\r\nCONFIG\r\n$3\r\nGET\r\n$3\r\ndir\r\n";
+        let frame = make_frame(input);
+
+        let cmd = Command::from_frame(&frame).unwrap();
+
+        let expected = Command::Config(
+            Config {
+                subcommand: Subcommand::GET(vec![GetParams::Dir])
+            }
+        );
+
+        assert_eq!(
+            cmd,
+            expected,
+        )
     }
 }

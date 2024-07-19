@@ -198,6 +198,13 @@ impl Frame {
         }
     }
 
+    pub fn extend(&mut self, frames: Vec<Frame>) {
+        match self {
+            Frame::Array(arr) => arr.extend(frames),
+            _ => panic!("Must be an array frame")
+        }
+    }
+
     pub fn byte_len(&self) -> usize {
         match self {
             Frame::Simple(s) => s.len() + 3, // len of str + 1 for encoding byte + 2 for\r\n
