@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::redis::frame::Frame;
 use crate::redis::parser::Parser;
+use crate::redis::ServerInfo;
 use crate::redis::utils::Named;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -22,13 +23,13 @@ impl Config {
         Ok(Config{ subcommand })
     }
 
-    pub(crate) fn apply (&self) -> Frame {
+    pub(crate) fn apply (&self, info: &ServerInfo) -> Frame {
         let mut resp = Frame::array();
 
         match &self.subcommand {
             Subcommand::GET(params) => {
                 for param in params {
-                    resp.extend(param.to_frame())
+                    resp.extend(param.to_frame(info))
                 }
             }
         }
@@ -62,18 +63,16 @@ impl GetParams {
 
         Ok(params)
     }
-    fn to_frame(&self) -> Vec<Frame> {
+    fn to_frame(&self, info: &ServerInfo) -> Vec<Frame> {
         let mut result = vec![];
         match self {
             GetParams::Dir => {
                 result.push(Frame::Bulk("dir".into()));
-                // hardcoded
-                result.push(Frame::Bulk("/tmp/".into()));
+                result.push(Frame::Bulk(info.dir.clone().into()));
             },
             GetParams::DBfilename => {
                 result.push(Frame::Bulk("dbfilename".into()));
-                // hardcoded
-                result.push(Frame::Bulk("bd_name".into()));
+                result.push(Frame::Bulk(info.db_file.clone().into()));
             }
         }
 

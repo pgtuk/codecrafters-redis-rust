@@ -82,7 +82,7 @@ impl Command {
             }
             Command::Psync(cmd) => { cmd.apply(info).await }
             Command::Wait(_) => { return Ok(()) },
-            Command::Config(cmd) => { cmd.apply() }
+            Command::Config(cmd) => { cmd.apply(info) }
         };
 
         if should_reply {

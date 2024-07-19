@@ -37,9 +37,9 @@ impl TestSetup {
         let replica1_cfg = TestSetup::config("127.0.0.1", "6380", Some(&master_cfg.addr));
         let replica2_cfg = TestSetup::config("127.0.0.1", "6381", Some(&master_cfg.addr));
 
-        let mut master = TestSetup::setup_server(&master_cfg).await;
-        let mut replica1 = TestSetup::setup_server(&replica1_cfg).await;
-        let mut replica2 = TestSetup::setup_server(&replica2_cfg).await;
+        let mut master = TestSetup::setup_server(master_cfg.clone()).await;
+        let mut replica1 = TestSetup::setup_server(replica1_cfg.clone()).await;
+        let mut replica2 = TestSetup::setup_server(replica2_cfg.clone()).await;
 
         let _mt = tokio::spawn(async move { master.run().await.unwrap() });
         let _r1t = tokio::spawn(async move { replica1.run().await.unwrap() });
@@ -65,10 +65,12 @@ impl TestSetup {
                 Some(addr) => Some(addr.clone()),
                 None => None
             },
+            dir: String::from("/tmp/"),
+            dbfilename: String::from("redis.rdb"),
         }
     }
 
-    async fn setup_server(cfg: &Config) -> Server {
+    async fn setup_server(cfg: Config) -> Server {
         Server::setup(cfg).await.unwrap()
     }
 }

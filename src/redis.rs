@@ -30,7 +30,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn setup(cfg: &Config) -> Result<Server> {
+    pub async fn setup(cfg: Config) -> Result<Server> {
         let role = match &cfg.master_addr {
             Some(_) => Role::Slave,
             None => Role::Master
@@ -40,7 +40,7 @@ impl Server {
             Server {
                 listener: TcpListener::bind(cfg.addr.to_string()).await?,
                 db: Db::new(),
-                info: ServerInfo::new(cfg.addr.clone(), role, cfg.master_addr.clone()),
+                info: ServerInfo::new(cfg, role),
             }
         )
     }
@@ -124,19 +124,23 @@ impl Server {
 pub struct ServerInfo {
     addr: utils::Addr,
     role: Role,
+    dir: String,
+    db_file: String,
     replinfo: Replinfo,
 }
 
 impl ServerInfo {
-    fn new(addr: utils::Addr, role: Role, master: Option<utils::Addr>) -> ServerInfo {
+    fn new(cfg: Config, role: Role) -> ServerInfo {
         ServerInfo {
-            addr,
+            addr: cfg.addr,
             role,
+            dir: cfg.dir,
+            db_file: cfg.dbfilename,
             replinfo: Replinfo {
                 id: String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"),
                 offset: Arc::new(Mutex::new(0)),
                 count: Arc::new(RwLock::new(0)),
-                master,
+                master: cfg.master_addr,
                 wait_lock: Arc::new(Mutex::new(false)),
                 repl_completed: Arc::new(RwLock::new(0)),
                 pending_commands: Arc::new(RwLock::new(false))

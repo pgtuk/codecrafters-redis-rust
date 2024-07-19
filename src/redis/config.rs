@@ -1,9 +1,11 @@
 use super::utils::Addr;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Config {
     pub addr: Addr,
     pub master_addr: Option<Addr>,
+    pub dir: String,
+    pub dbfilename: String
 }
 
 impl Config {
@@ -20,6 +22,8 @@ impl Config {
                         extract_arg(&args, i + 1)?
                     )?
                 ),
+                "--dir" => cfg.dir = extract_arg(&args, i + 1)?,
+                "--dbfilename" => cfg.dbfilename = extract_arg(&args, i + 1)?,
                 unknown => return Err(format!("Unknown param: {}", unknown))
             }
         }
