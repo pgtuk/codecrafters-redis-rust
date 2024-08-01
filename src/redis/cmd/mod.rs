@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use anyhow::Result;
+use tokio::sync::broadcast::Sender;
 
 use config::Config as ConfigCmd;
 use echo::Echo;
@@ -9,6 +12,8 @@ pub(crate) use psync::Psync;
 use replconf::Replconf;
 use set::Set;
 pub(crate) use wait::Wait;
+
+use crate::redis::replica::ReplicationMsg;
 
 use super::{
     connection::Connection,
@@ -69,7 +74,8 @@ impl Command {
     pub async fn apply(
         &self, conn: &mut Connection,
         db: &mut Db,
-        server_info: &mut ServerInfo
+        server_info: &mut ServerInfo,
+        sender: &mut Arc<Sender<ReplicationMsg>>,
     ) -> Result<()> {
         let mut should_reply = !conn.is_repl_conn;
 
@@ -85,7 +91,7 @@ impl Command {
                 cmd.apply(server_info).await
             }
             Command::Psync(cmd) => { cmd.apply(server_info).await }
-            Command::Wait(_) => { return Ok(()) },
+            Command::Wait(cmd) => { cmd.apply(sender, server_info).await },
             Command::Config(cmd) => { cmd.apply(server_info) }
         };
 

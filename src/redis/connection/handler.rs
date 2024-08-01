@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use tokio::sync::broadcast::Sender;
-use tokio::time::{Duration, sleep, timeout};
+use tokio::time::{Duration, timeout};
 
 use crate::redis::cmd::{ClientCmd, Command};
 use crate::redis::cmd::replconf::Replconf;
 use crate::redis::connection::Connection;
 use crate::redis::db::Db;
-use crate::redis::frame::Frame;
 use crate::redis::replica::ReplicationMsg;
 use crate::redis::ServerInfo;
 
@@ -47,15 +46,15 @@ impl Handler {
 
             let cmd = Command::from_frame(&frame)?;
 
-            match cmd {
-                Command::Wait(_) => (),
-                _ => cmd.apply(
-                    &mut self.connection,
-                    &mut self.db,
-                    &mut self.server_info,
-                ).await?
-            }
+            cmd.apply(
+                // TODO just pass Handler at this point???
+                &mut self.connection,
+                &mut self.db,
+                &mut self.server_info,
+                &mut self.sender,
+            ).await?;
 
+            // TODO check list of commands which should change offset
             self.increase_offset(frame.byte_len()).await;
 
             if self.server_info.is_master() {
@@ -64,19 +63,6 @@ impl Handler {
                     Command::Set(_) => {
                         self.sender.send(ReplicationMsg::Propagate(frame))?;
                         self.set_pending(true).await;
-                    },
-                    Command::Wait(wait) => {
-                        let frame = if !self.has_pending().await {
-                            // just reply with number of connected replicas
-                            // if no previous commands were propagated
-                            let repl_count = self.server_info.replinfo.count.read().await;
-                            Frame::Integer(*repl_count as u64)
-                        } else {
-                            self.sender.send(ReplicationMsg::Wait(wait.timeout))?;
-                            sleep(Duration::from_millis(wait.timeout)).await;
-                            wait.apply(&self.server_info).await
-                        };
-                        self.connection.write_frame(&frame).await?;
                     },
 
                     // after psync cmd master starts handle_propagationlistening for write commands to replicate
@@ -112,9 +98,6 @@ impl Handler {
         Ok(())
     }
 
-    async fn has_pending(&self) -> bool {
-        self.server_info.replinfo.has_pending().await
-    }
 
     async fn set_pending(&mut self, val: bool) {
         let mut pending = self.server_info.replinfo.pending_commands.write().await;
@@ -136,11 +119,3 @@ impl Handler {
         *offset += increase as i64;
     }
 }
-
-// impl Drop for Handler {
-//     fn drop(&mut self) {
-//         if self.connection.is_repl_conn && self.server_info.is_master() {
-//             self.server_info.replinfo.blocking_drop_replica();
-//         }
-//     }
-// }

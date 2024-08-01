@@ -1,6 +1,12 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use anyhow::Result;
+use tokio::sync::broadcast::Sender;
+use tokio::time::sleep;
 
 use crate::redis::{frame::Frame, parser::Parser, ServerInfo, utils::Named};
+use crate::redis::replica::{ReplicationMsg, Replinfo};
 
 use super::ClientCmd;
 
@@ -22,16 +28,23 @@ impl Wait {
         Ok(Wait { numreplicas, timeout })
     }
 
-    pub async fn apply(&self, server_info: &ServerInfo) -> Frame {
-        let _ = server_info.replinfo.wait_lock.lock().await;
+    pub async fn apply(&self, sender: &mut Arc<Sender<ReplicationMsg>>, server_info: &ServerInfo) -> Frame {
+        if !has_pending(&server_info.replinfo).await {
+            // if no previous commands were propagated
+            // just reply with number of connected replicas
+            let repl_count = server_info.replinfo.count.read().await;
+            Frame::Integer(*repl_count as u64)
+        } else {
+            sender.send(ReplicationMsg::Wait(self.timeout)).unwrap();
+            sleep(Duration::from_millis(self.timeout)).await;
 
-        let ack = *server_info.replinfo.repl_completed.read().await;
+            let _ = server_info.replinfo.wait_lock.lock().await;
+            let ack = *server_info.replinfo.repl_completed.read().await;
 
-        let frame = Frame::Integer(ack as u64);
+            self.reset_repl_counter(server_info).await;
 
-        self.reset_repl_counter(server_info).await;
-
-        frame
+            Frame::Integer(ack as u64)
+        }
     }
 
     async fn reset_repl_counter(&self, server_info: &ServerInfo) {
@@ -56,4 +69,8 @@ impl ClientCmd for Wait {
 
         frame
     }
+}
+
+async fn has_pending(replinfo: &Replinfo) -> bool {
+    replinfo.has_pending().await
 }
