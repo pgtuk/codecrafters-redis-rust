@@ -22,20 +22,20 @@ impl Wait {
         Ok(Wait { numreplicas, timeout })
     }
 
-    pub async fn apply(&self, info: &ServerInfo) -> Frame {
-        let _ = info.replinfo.wait_lock.lock().await;
+    pub async fn apply(&self, server_info: &ServerInfo) -> Frame {
+        let _ = server_info.replinfo.wait_lock.lock().await;
 
-        let ack = *info.replinfo.repl_completed.read().await;
+        let ack = *server_info.replinfo.repl_completed.read().await;
 
         let frame = Frame::Integer(ack as u64);
 
-        self.reset_repl_counter(info).await;
+        self.reset_repl_counter(server_info).await;
 
         frame
     }
 
-    async fn reset_repl_counter(&self, info: &ServerInfo) {
-        let mut reset = info.replinfo.repl_completed.write().await;
+    async fn reset_repl_counter(&self, server_info: &ServerInfo) {
+        let mut reset = server_info.replinfo.repl_completed.write().await;
         *reset = 0;
     }
 }

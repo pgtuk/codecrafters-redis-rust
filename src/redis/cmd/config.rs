@@ -23,13 +23,13 @@ impl Config {
         Ok(Config{ subcommand })
     }
 
-    pub(crate) fn apply (&self, info: &ServerInfo) -> Frame {
+    pub(crate) fn apply (&self, server_info: &ServerInfo) -> Frame {
         let mut resp = Frame::array();
 
         match &self.subcommand {
             Subcommand::GET(params) => {
                 for param in params {
-                    resp.extend(param.to_frame(info))
+                    resp.extend(param.to_frame(server_info))
                 }
             }
         }
@@ -63,16 +63,16 @@ impl GetParams {
 
         Ok(params)
     }
-    fn to_frame(&self, info: &ServerInfo) -> Vec<Frame> {
+    fn to_frame(&self, server_info: &ServerInfo) -> Vec<Frame> {
         let mut result = vec![];
         match self {
             GetParams::Dir => {
                 result.push(Frame::Bulk("dir".into()));
-                result.push(Frame::Bulk(info.dir.clone().into()));
+                result.push(Frame::Bulk(server_info.dir.clone().into()));
             },
             GetParams::DBfilename => {
                 result.push(Frame::Bulk("dbfilename".into()));
-                result.push(Frame::Bulk(info.db_file.clone().into()));
+                result.push(Frame::Bulk(server_info.db_file.clone().into()));
             }
         }
 

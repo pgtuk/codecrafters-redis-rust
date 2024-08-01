@@ -20,17 +20,17 @@ impl Info {
         Ok(Info::new())
     }
 
-    pub async fn apply(&self, info: &ServerInfo) -> Frame {
-        let string = Info::build_info_string(info).await;
+    pub async fn apply(&self, server_info: &ServerInfo) -> Frame {
+        let string = Info::build_info_string(server_info).await;
         Frame::Bulk(string.into())
     }
 
-    async fn build_info_string(info: &ServerInfo) -> String {
+    async fn build_info_string(server_info: &ServerInfo) -> String {
         format!(
             "role:{role}\nmaster_replid:{replid}\nmaster_repl_offset:{reploffset}",
-            role = info.role,
-            replid = info.replinfo.id,
-            reploffset = info.replinfo.offset.lock().await,
+            role = server_info.role,
+            replid = server_info.replinfo.id,
+            reploffset = server_info.replinfo.offset.lock().await,
         )
     }
 }

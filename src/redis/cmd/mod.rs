@@ -66,7 +66,11 @@ impl Command {
         Ok(command)
     }
 
-    pub async fn apply(&self, conn: &mut Connection, db: &mut Db, info: &mut ServerInfo) -> Result<()> {
+    pub async fn apply(
+        &self, conn: &mut Connection,
+        db: &mut Db,
+        server_info: &mut ServerInfo
+    ) -> Result<()> {
         let mut should_reply = !conn.is_repl_conn;
 
         let response = match self {
@@ -74,15 +78,15 @@ impl Command {
             Command::Echo(cmd) => { cmd.apply() }
             Command::Set(cmd) => { cmd.apply(db) }
             Command::Get(cmd) => { cmd.apply(db) }
-            Command::Info(cmd) => { cmd.apply(info).await }
+            Command::Info(cmd) => { cmd.apply(server_info).await }
             Command::Replconf(cmd) => {
                 // the only command to which replica replies
                 should_reply = true;
-                cmd.apply(info).await
+                cmd.apply(server_info).await
             }
-            Command::Psync(cmd) => { cmd.apply(info).await }
+            Command::Psync(cmd) => { cmd.apply(server_info).await }
             Command::Wait(_) => { return Ok(()) },
-            Command::Config(cmd) => { cmd.apply(info) }
+            Command::Config(cmd) => { cmd.apply(server_info) }
         };
 
         if should_reply {

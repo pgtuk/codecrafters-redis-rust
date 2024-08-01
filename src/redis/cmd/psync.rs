@@ -24,9 +24,9 @@ impl Psync {
         Ok(Psync { replication_id: "replication_id".to_string(), offset: 1 })
     }
 
-    pub async fn apply(&self, info: &mut ServerInfo) -> Frame {
-        info.replinfo.add_replica().await;
-        Frame::Simple(format!("FULLRESYNC {} 0", info.replinfo.id))
+    pub async fn apply(&self, server_info: &mut ServerInfo) -> Frame {
+        server_info.replinfo.add_replica().await;
+        Frame::Simple(format!("FULLRESYNC {} 0", server_info.replinfo.id))
     }
 }
 
