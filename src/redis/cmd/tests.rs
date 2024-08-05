@@ -6,8 +6,10 @@ use tokio::time::{Duration, sleep};
 
 use crate::redis::{
     Config,
+    connection::Connection,
     db::Db,
     Role,
+    ServerInfo,
     tests::make_frame,
 };
 use crate::redis::cmd::ClientCmd;

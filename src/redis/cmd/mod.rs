@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
 use anyhow::Result;
-use tokio::sync::broadcast::Sender;
 
 use config::Config as ConfigCmd;
 use echo::Echo;
@@ -13,14 +10,9 @@ use replconf::Replconf;
 use set::Set;
 pub(crate) use wait::Wait;
 
-use crate::redis::replica::ReplicationMsg;
-
 use super::{
-    connection::Connection,
-    db::Db,
     frame::Frame,
     parser::Parser,
-    ServerInfo,
 };
 
 pub mod get;
@@ -69,40 +61,6 @@ impl Command {
         };
 
         Ok(command)
-    }
-
-    pub async fn apply(
-        &self, conn: &mut Connection,
-        db: &mut Db,
-        server_info: &mut ServerInfo,
-        sender: &mut Arc<Sender<ReplicationMsg>>,
-    ) -> Result<()> {
-        let mut should_reply = !conn.is_repl_conn;
-
-        let response = match self {
-            Command::Ping(cmd) => { cmd.apply() }
-            Command::Echo(cmd) => { cmd.apply() }
-            Command::Set(cmd) => { cmd.apply(db) }
-            Command::Get(cmd) => { cmd.apply(db) }
-            Command::Info(cmd) => { cmd.apply(server_info).await }
-            Command::Replconf(cmd) => {
-                // the only command to which replica replies
-                should_reply = true;
-                cmd.apply(server_info).await
-            }
-            Command::Psync(cmd) => { cmd.apply(server_info).await }
-            Command::Wait(cmd) => { cmd.apply(sender, server_info).await },
-            Command::Config(cmd) => { cmd.apply(server_info) }
-        };
-
-        if should_reply {
-            conn.write_frame(&response).await?;
-            if let Command::Psync(_) = self {
-                conn.write_rdb(&db.build_rdb_frame()).await?
-            }
-        }
-
-        Ok(())
     }
 }
 

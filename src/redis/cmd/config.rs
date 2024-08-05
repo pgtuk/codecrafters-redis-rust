@@ -16,7 +16,7 @@ impl Config {
     pub(crate) fn parse_args(parser: &mut Parser) -> Result<Config> {
         let subcommand_as_str = parser.next_string()?.to_uppercase();
         let subcommand = match &subcommand_as_str[..] {
-            "GET" => {Subcommand::GET(GetParams::parse(parser)?)},
+            "GET" => {Subcommand::Get(GetParams::parse(parser)?)},
             _ => unimplemented!()
         };
 
@@ -27,7 +27,7 @@ impl Config {
         let mut resp = Frame::array();
 
         match &self.subcommand {
-            Subcommand::GET(params) => {
+            Subcommand::Get(params) => {
                 for param in params {
                     resp.extend(param.to_frame(server_info))
                 }
@@ -41,7 +41,7 @@ impl Config {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Subcommand {
     // None,
-    GET(Vec<GetParams>),
+    Get(Vec<GetParams>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -87,7 +87,7 @@ impl Named for Config {
 impl fmt::Display for Subcommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Subcommand::GET(_) => write!(f, "GET"),
+            Subcommand::Get(_) => write!(f, "GET"),
             // ReplconfParam::Capa => write!(f, "capa"),
             // ReplconfParam::Getack => write!(f, "GETACK")
         }
@@ -111,7 +111,7 @@ mod tests {
 
         let expected = Command::Config(
             Config {
-                subcommand: Subcommand::GET(vec![GetParams::Dir])
+                subcommand: Subcommand::Get(vec![GetParams::Dir])
             }
         );
 
